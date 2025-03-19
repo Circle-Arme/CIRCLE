@@ -1,5 +1,5 @@
 # استبعاد ملف settings.py
-CIRCLE/settings.py
+settings.py
 
 django-rest-framework-master/
 
