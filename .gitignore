@@ -1,0 +1,27 @@
+# استبعاد ملف settings.py
+CIRCLE/settings.py
+
+django-rest-framework-master/
+
+
+*.zip
+
+
+# ملفات Python المترجمة
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# قواعد البيانات
+*.sqlite3
+
+# البيئة الافتراضية
+venv/
+env/
+
+# ملفات الإعدادات الحساسة الأخرى
+.env
+
+staticfiles/
+media/
