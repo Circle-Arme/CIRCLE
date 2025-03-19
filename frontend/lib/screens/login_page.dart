@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'regstraion_page.dart';
 import 'home_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -220,7 +221,11 @@ class _LoginPageState extends State<LoginPage> {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Handle sign up action here
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => CreateAccountPage()),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryGreen,

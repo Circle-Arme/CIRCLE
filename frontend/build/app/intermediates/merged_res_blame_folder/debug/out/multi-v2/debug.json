@@ -769,7 +769,7 @@
             "outputFile": "com.example.frontend.app-merged_res-26:/values_values.arsc.flat",
             "map": [
                 {
-                    "source": "C:\\Users\\ryham\\frontend\\android\\app\\src\\main\\res\\values\\styles.xml",
+                    "source": "C:\\Users\\ryham\\CIRCLE\\frontend\\android\\app\\src\\main\\res\\values\\styles.xml",
                     "from": {
                         "startLines": "3,14",
                         "startColumns": "4,4",
@@ -1161,7 +1161,7 @@
             "outputFile": "com.example.frontend.app-merged_res-26:/values-night-v8_values-night-v8.arsc.flat",
             "map": [
                 {
-                    "source": "C:\\Users\\ryham\\frontend\\android\\app\\src\\main\\res\\values-night\\styles.xml",
+                    "source": "C:\\Users\\ryham\\CIRCLE\\frontend\\android\\app\\src\\main\\res\\values-night\\styles.xml",
                     "from": {
                         "startLines": "3,14",
                         "startColumns": "4,4",

@@ -4,7 +4,7 @@
             "outputFile": "com.example.frontend.app-mergeDebugResources-24:/values/values.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\ryham\\frontend\\android\\app\\src\\main\\res\\values\\styles.xml",
+                    "source": "C:\\Users\\ryham\\CIRCLE\\frontend\\android\\app\\src\\main\\res\\values\\styles.xml",
                     "from": {
                         "startLines": "3,14",
                         "startColumns": "4,4",
