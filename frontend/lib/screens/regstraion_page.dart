@@ -109,14 +109,14 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
             ),
             const SizedBox(height: 20),
 
-            // Form
+            // -------------Form---------------------//
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 35),
               child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Full Name
+                    //------ Full Name------//
                     TextFormField(
                       controller: _fullNameController,
                       style: const TextStyle(color: primaryGreen),
@@ -144,7 +144,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                     ),
                     const SizedBox(height: 25),
 
-                    // Email
+                    // ------Email------//
                     TextFormField(
                       controller: _emailController,
                       style: const TextStyle(color: primaryGreen),
@@ -178,7 +178,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                     ),
                     const SizedBox(height: 25),
 
-                    // Password
+                    //------- Password-------//
                     TextFormField(
                       controller: _passwordController,
                       style: const TextStyle(color: primaryGreen),
@@ -222,7 +222,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                     ),
                     const SizedBox(height: 40),
 
-                    // Confirm button
+                    //------ Confirm button ------//
                     SizedBox(
                       width: double.infinity,
                       height: 50,

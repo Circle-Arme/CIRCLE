@@ -54,7 +54,7 @@ class _LoginPageState extends State<LoginPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Top section
+            // -------Top section ------//
             Container(
               width: double.infinity,
               color: primaryGreen,
@@ -85,14 +85,14 @@ class _LoginPageState extends State<LoginPage> {
 
             const SizedBox(height: 40),
 
-            // Form
+            // -----------Form----------//
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 35),
               child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Email
+                    //------- Email------//
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -130,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 20),
 
-                    // Password
+                    //------ Password------///
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -179,7 +179,7 @@ class _LoginPageState extends State<LoginPage> {
 
                     const SizedBox(height: 30),
 
-                    // Login button
+                    // ------Login button------//
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -215,7 +215,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 30),
 
-                    // Sign Up button
+                    // -----Sign Up button------//
                     SizedBox(
                       width: double.infinity,
                       height: 50,

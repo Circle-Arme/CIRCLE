@@ -6,17 +6,18 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false, // Remove the debug banner
       title: 'Circle App',
       theme: ThemeData(
-        primaryColor: const Color(0xFF567F60),
+        primaryColor: const Color(0xFF567F60), // Primary color
+        fontFamily: 'Varela', //will change
       ),
-      home: const LoginPage(),
+      home: const LoginPage(), // login page as the home screen
     );
   }
 }
