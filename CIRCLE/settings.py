@@ -25,15 +25,15 @@ SECRET_KEY = 'django-insecure-10nlp+nr0lqsqn2rif%20@qzh0tuci@zt7$8@_c@4klevcg0f7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1', '192.168.1.100']
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'rest_framework',
-    'crispy_forms',
-    'register.apps.RegisterConfig',
+    'accounts.apps.AccountsConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,10 +42,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
-CRISPY_TEMPLATE_PACK='bootstrap4'
-
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -55,7 +54,19 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'start.urls'
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:8000",
+    "http://10.0.2.2:8000",
+    "http://192.168.1.100",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+
+
+ROOT_URLCONF = 'CIRCLE.urls'
 
 TEMPLATES = [
     {
@@ -75,7 +86,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'start.wsgi.application'
+WSGI_APPLICATION = 'CIRCLE.wsgi.application'
 
 
 # Database
@@ -96,7 +107,7 @@ DATABASES = {
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
-AUTH_USER_MODEL = 'register.CustomUser'
+AUTH_USER_MODEL = 'accounts.CustomUser'
 
 AUTH_PASSWORD_VALIDATORS = [
     {

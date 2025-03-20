@@ -1,9 +1,7 @@
 from rest_framework import generics
-from .models import Book
-from .serializers import BookSerializer, UserSerializer
-from rest_framework.generics import CreateAPIView
 from .models import CustomUser
+from .serializers import UserSerializer
 
 class UserListCreateAPIView(generics.ListCreateAPIView):
-    queryset = CustomUser.objects.all()
+    queryset = CustomUser.objects.all() 
     serializer_class = UserSerializer
