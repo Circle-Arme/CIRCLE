@@ -4,7 +4,7 @@ import 'regstraion_page.dart';
 import 'home_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+  const LoginPage({super.key});
 
   @override
   _LoginPageState createState() => _LoginPageState();
@@ -16,9 +16,14 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscurePassword = true; // For toggling password visibility
+  bool _obscurePassword = true;
 
-  // Function to handle login
+  // Replace these with your preferred teal/gray shades:
+  static const Color primaryTeal = Color(0xFF2A6776);
+  static const Color fieldBorderTeal = Color(0xFF416D6D);
+  static const Color loginButtonColor = Color(0xFFE0E0E0); // light gray
+  static const Color backgroundWhite = Colors.white;
+
   void _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
@@ -31,7 +36,6 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _isLoading = false);
 
       if (isSuccess) {
-        // Navigate to home page
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
@@ -46,38 +50,33 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryGreen = Color(0xFF567F60);
-    const Color lightGreen = Color(0xFFDCE3D7);
-
     return Scaffold(
-      backgroundColor: Colors.white,
+      // The overall background is white (bottom part of the screen):
+      backgroundColor: backgroundWhite,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // -------Top section ------//
+            // Top teal section
             Container(
               width: double.infinity,
-              color: primaryGreen,
-              padding: const EdgeInsets.only(top: 70, bottom: 60),
+              color: primaryTeal,
+              padding: const EdgeInsets.only(top: 70, bottom: 80),
               child: Column(
                 children: const [
                   Text(
                     "CIRCLE",
                     style: TextStyle(
-                      fontSize: 40,
+                      fontSize: 70,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      letterSpacing: 2,
+                      letterSpacing: 0,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  SizedBox(height: 2),
                   Text(
                     "Enhance your skills and build a strong\nprofessional network",
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 20),
                   ),
                 ],
               ),
@@ -85,33 +84,35 @@ class _LoginPageState extends State<LoginPage> {
 
             const SizedBox(height: 40),
 
-            // -----------Form----------//
+            // Form fields
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 35),
               child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
-                    //------- Email------//
+                    // Email field
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         labelText: 'Email',
-                        labelStyle: const TextStyle(color: primaryGreen),
+                        labelStyle: const TextStyle(color: primaryTeal),
+                        fillColor: Colors.white,
                         filled: true,
-                        fillColor: lightGreen.withOpacity(0.1),
                         border: OutlineInputBorder(
-                          borderSide: const BorderSide(color: primaryGreen),
+                          borderSide: const BorderSide(color: primaryTeal),
                           borderRadius: BorderRadius.circular(30),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: primaryGreen),
+                          borderSide: const BorderSide(color: primaryTeal),
                           borderRadius: BorderRadius.circular(30),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide:
-                              const BorderSide(color: primaryGreen, width: 2),
+                          borderSide: const BorderSide(
+                            color: primaryTeal,
+                            width: 2,
+                          ),
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
@@ -120,36 +121,38 @@ class _LoginPageState extends State<LoginPage> {
                           return 'Please enter your email';
                         }
                         final emailPattern = RegExp(
-                            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                        );
                         if (!emailPattern.hasMatch(value)) {
                           return 'Enter a valid email';
                         }
                         return null;
                       },
                     ),
-
                     const SizedBox(height: 20),
 
-                    //------ Password------///
+                    // Password field
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        labelStyle: const TextStyle(color: primaryGreen),
+                        labelStyle: const TextStyle(color: primaryTeal),
+                        fillColor: Colors.white,
                         filled: true,
-                        fillColor: lightGreen.withOpacity(0.1),
                         border: OutlineInputBorder(
-                          borderSide: const BorderSide(color: primaryGreen),
+                          borderSide: const BorderSide(color: primaryTeal),
                           borderRadius: BorderRadius.circular(30),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: primaryGreen),
+                          borderSide: const BorderSide(color: primaryTeal),
                           borderRadius: BorderRadius.circular(30),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderSide:
-                              const BorderSide(color: primaryGreen, width: 2),
+                          borderSide: const BorderSide(
+                            color: primaryTeal,
+                            width: 2,
+                          ),
                           borderRadius: BorderRadius.circular(30),
                         ),
                         suffixIcon: IconButton(
@@ -157,7 +160,7 @@ class _LoginPageState extends State<LoginPage> {
                             _obscurePassword
                                 ? Icons.visibility_off
                                 : Icons.visibility,
-                            color: primaryGreen,
+                            color: primaryTeal,
                           ),
                           onPressed: () {
                             setState(() {
@@ -176,46 +179,47 @@ class _LoginPageState extends State<LoginPage> {
                         return null;
                       },
                     ),
-
                     const SizedBox(height: 30),
 
-                    // ------Login button------//
+                    // Login button
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _login,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: lightGreen,
+                          backgroundColor: loginButtonColor,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
                         ),
-                        child: _isLoading
+                        child:
+                        _isLoading
                             ? const CircularProgressIndicator(
-                                color: Colors.white)
+                          color: primaryTeal,
+                        )
                             : const Text(
-                                'Login',
-                                style: TextStyle(
-                                  color: primaryGreen,
-                                  fontSize: 18,
-                                ),
-                              ),
+                          'Login',
+                          style: TextStyle(
+                            color: primaryTeal,
+                            fontSize: 18,
+                          ),
+                        ),
                       ),
                     ),
 
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 80),
 
-                    // divide
-                    const SizedBox(height: 2),
-                    const Text(
-                      "_",
-                      style: TextStyle(color: primaryGreen, fontSize: 50),
+                    // A small separator or divider
+                    SizedBox(
+                      width: 30,
+                      child: Divider(color: primaryTeal, thickness: 5),
                     ),
-                    const SizedBox(height: 30),
 
-                    // -----Sign Up button------//
+                    const SizedBox(height: 80),
+
+                    // Sign Up button
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -224,11 +228,12 @@ class _LoginPageState extends State<LoginPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => CreateAccountPage()),
+                              builder: (context) => CreateAccountPage(),
+                            ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryGreen,
+                          backgroundColor: primaryTeal,
                           elevation: 2,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
@@ -236,10 +241,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         child: const Text(
                           'Sign Up',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 18),
                         ),
                       ),
                     ),

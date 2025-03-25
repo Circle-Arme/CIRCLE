@@ -15,14 +15,22 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
 
   void _createAccount() async {
     if (_formKey.currentState!.validate()) {
+      if (_passwordController.text != _confirmPasswordController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Passwords do not match')),
+        );
+        return;
+      }
+
       setState(() => _isLoading = true);
-      //regster
+
       bool isSuccess = await AuthService.register(
         _fullNameController.text.trim(),
         _emailController.text.trim(),
@@ -46,51 +54,51 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryGreen = Color(0xFF567F60);
+    const Color primaryTeal = Color(0xFF2A6776);
+    const Color headerBackground = Color(0xFFDCE3D7);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header with back arrow + main text
+            // --------- Header with back and center title ----------
             Container(
               width: double.infinity,
-              color: primaryGreen,
-              padding: const EdgeInsets.only(top: 50, bottom: 30),
+              color: headerBackground,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
               child: SafeArea(
-                child: Row(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: const Icon(Icons.arrow_back, color: primaryTeal),
                       onPressed: () => Navigator.pop(context),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                    const Center(
                       child: Column(
-                        children: const [
-                          SizedBox(height: 10),
+                        children: [
                           Text(
                             "CIRCLE",
-                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 40,
+                              fontSize: 70,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 2,
+                              color: primaryTeal,
+                              letterSpacing: 0,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          SizedBox(height: 2),
                           Text(
                             "Enhance your skills and build a strong\nprofessional network",
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white, fontSize: 15),
+                            style: TextStyle(
+                              color: primaryTeal,
+                              fontSize: 20,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 48), // space to mirror arrow
                   ],
                 ),
               ),
@@ -98,41 +106,36 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
             const SizedBox(height: 30),
 
-            // Title
             const Text(
               "Create an Account",
               style: TextStyle(
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: primaryGreen,
+                color: primaryTeal,
               ),
             ),
-            const SizedBox(height: 20),
 
-            // -------------Form---------------------//
+            const SizedBox(height: 30),
+
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 35),
+              padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
-                    //------ Full Name------//
+                    // ---- Full Name ----
                     TextFormField(
                       controller: _fullNameController,
-                      style: const TextStyle(color: primaryGreen),
+                      style: const TextStyle(color: primaryTeal),
                       decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.person, color: primaryGreen),
+                        prefixIcon: Icon(Icons.person, color: primaryTeal),
                         labelText: "Full Name",
-                        labelStyle: TextStyle(color: primaryGreen),
-                        // Underline border
+                        labelStyle: TextStyle(color: primaryTeal),
                         enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: primaryGreen),
+                          borderSide: BorderSide(color: primaryTeal),
                         ),
                         focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: primaryGreen,
-                            width: 2.0,
-                          ),
+                          borderSide: BorderSide(color: primaryTeal, width: 2),
                         ),
                       ),
                       validator: (value) {
@@ -144,33 +147,29 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                     ),
                     const SizedBox(height: 25),
 
-                    // ------Email------//
+                    // ---- Email ----
                     TextFormField(
                       controller: _emailController,
-                      style: const TextStyle(color: primaryGreen),
-                      keyboardType: TextInputType.emailAddress,
+                      style: const TextStyle(color: primaryTeal),
                       decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.email, color: primaryGreen),
+                        prefixIcon: Icon(Icons.email, color: primaryTeal),
                         labelText: "Email",
-                        labelStyle: TextStyle(color: primaryGreen),
+                        labelStyle: TextStyle(color: primaryTeal),
                         enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: primaryGreen),
+                          borderSide: BorderSide(color: primaryTeal),
                         ),
                         focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: primaryGreen,
-                            width: 2.0,
-                          ),
+                          borderSide: BorderSide(color: primaryTeal, width: 2),
                         ),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter an email';
+                          return 'Please enter your email';
                         }
-                        final emailPattern = RegExp(
-                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                        final emailRegex = RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                         );
-                        if (!emailPattern.hasMatch(value)) {
+                        if (!emailRegex.hasMatch(value)) {
                           return 'Enter a valid email';
                         }
                         return null;
@@ -178,30 +177,25 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                     ),
                     const SizedBox(height: 25),
 
-                    //------- Password-------//
+                    // ---- Password ----
                     TextFormField(
                       controller: _passwordController,
-                      style: const TextStyle(color: primaryGreen),
                       obscureText: _obscurePassword,
+                      style: const TextStyle(color: primaryTeal),
                       decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.lock, color: primaryGreen),
+                        prefixIcon: const Icon(Icons.lock, color: primaryTeal),
                         labelText: "Password",
-                        labelStyle: const TextStyle(color: primaryGreen),
+                        labelStyle: const TextStyle(color: primaryTeal),
                         enabledBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: primaryGreen),
+                          borderSide: BorderSide(color: primaryTeal),
                         ),
                         focusedBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: primaryGreen,
-                            width: 2.0,
-                          ),
+                          borderSide: BorderSide(color: primaryTeal, width: 2),
                         ),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: primaryGreen,
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            color: primaryTeal,
                           ),
                           onPressed: () {
                             setState(() {
@@ -212,7 +206,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter a password';
+                          return 'Enter a password';
                         }
                         if (value.length < 6) {
                           return 'Password must be at least 6 characters';
@@ -220,32 +214,48 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                         return null;
                       },
                     ),
+                    const SizedBox(height: 25),
+
+                    // ---- Confirm Password ----
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: _obscurePassword,
+                      style: const TextStyle(color: primaryTeal),
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.lock_outline, color: primaryTeal),
+                        labelText: "Confirm Password",
+                        labelStyle: TextStyle(color: primaryTeal),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: primaryTeal),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: primaryTeal, width: 2),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your password';
+                        }
+                        return null;
+                      },
+                    ),
                     const SizedBox(height: 40),
 
-                    //------ Confirm button ------//
+                    // ---- Confirm Button (Arrow Icon) ----
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _createAccount,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryGreen,
-                          elevation: 2,
+                          backgroundColor: primaryTeal,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(5),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : const Text(
-                                'Confirm',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                ),
-                              ),
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Icon(Icons.arrow_forward, color: Colors.white),
                       ),
                     ),
 
