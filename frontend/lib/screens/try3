@@ -1,0 +1,700 @@
+// pages/discussion_room_page.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+import '../models/thread_model.dart';
+import '../theme/app_colors.dart';
+import 'thread_page.dart';
+import 'create_thread_form.dart';
+
+class DiscussionRoomPage extends StatefulWidget {
+  const DiscussionRoomPage({Key? key}) : super(key: key);
+
+  @override
+  State<DiscussionRoomPage> createState() => _DiscussionRoomPageState();
+}
+
+class _DiscussionRoomPageState extends State<DiscussionRoomPage> {
+  // قائمة تجريبية من الثريدات (يمكن استبدالها ببيانات من API)
+  List<ThreadModel> allThreads = [
+    ThreadModel(
+      id: "1",
+      title: "مرحبا! لدي سؤال عن المشروع",
+      creatorName: "Abeer",
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      repliesCount: 5,
+      classification: 'Q&A',
+      content: "تفاصيل أكثر حول السؤال...",
+      tags: ["مشروع", "Flutter", "استفسار"],
+    ),
+    ThreadModel(
+      id: "2",
+      title: "اقتراح تطوير ميزة البحث",
+      creatorName: "Mayada",
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      repliesCount: 2,
+      classification: 'General',
+      content: "لدي فكرة حول تحسين واجهة البحث...",
+      tags: ["اقتراح", "تطوير", "UI/UX"],
+    ),
+  ];
+
+  // خيارات الفلترة
+  final List<String> filterOptions = ['All', 'Q&A', 'General'];
+  String _selectedFilter = 'All';
+
+  // متغير لتخزين قيمة البحث
+  String _searchQuery = '';
+
+  // دالة إرجاع الثريدات المفلترة بناءً على التصنيف والبحث
+  List<ThreadModel> _getFilteredThreads() {
+    List<ThreadModel> filtered = allThreads;
+    if (_selectedFilter != 'All') {
+      filtered =
+          filtered.where((t) => t.classification == _selectedFilter).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered
+          .where((t) =>
+              t.title.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
+    }
+    return filtered;
+  }
+
+  // دالة إنشاء ثريد جديد عبر عرض الفورم
+  Future<void> _createNewThread() async {
+    final newThread = await showDialog<ThreadModel>(
+      context: context,
+      builder: (_) => const CreateThreadForm(),
+    );
+    if (newThread != null) {
+      setState(() {
+        allThreads.insert(0, newThread);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredThreads = _getFilteredThreads();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("غرفة النقاش"),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.primaryColor),
+        titleTextStyle: const TextStyle(
+          color: AppColors.primaryColor,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+        // شريط بحث مدمج ضمن AppBar
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(60.h),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'ابحث عن موضوع...',
+                prefixIcon: const Icon(Icons.search),
+                contentPadding: EdgeInsets.symmetric(vertical: 10.h),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30.r),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: Colors.grey[200],
+              ),
+            ),
+          ),
+        ),
+      ),
+      // خلفية برغماتية بسيطة
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.grey.shade100, Colors.grey.shade200],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // قائمة الفلاتر باستخدام ChoiceChips
+              SizedBox(
+                height: 40.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: filterOptions.length,
+                  itemBuilder: (context, index) {
+                    final option = filterOptions[index];
+                    String label = option == 'All'
+                        ? 'الكل'
+                        : option == 'Q&A'
+                            ? 'سؤال وجواب'
+                            : 'نقاش عام';
+                    return Padding(
+                      padding: EdgeInsets.only(right: 8.w),
+                      child: ChoiceChip(
+                        label: Text(
+                          label,
+                          style: TextStyle(fontSize: 14.sp),
+                        ),
+                        selected: _selectedFilter == option,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedFilter = option;
+                          });
+                        },
+                        selectedColor:
+                            AppColors.primaryColor.withOpacity(0.2),
+                        backgroundColor: Colors.grey[300],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: 16.h),
+              // عرض قائمة الثريدات باستخدام AnimatedSwitcher
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: filteredThreads.isNotEmpty
+                      ? ListView.builder(
+                          key: ValueKey<String>(
+                              _selectedFilter + _searchQuery),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: filteredThreads.length,
+                          itemBuilder: (context, index) {
+                            final thread = filteredThreads[index];
+                            return ModernThreadCard(
+                              thread: thread,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        ThreadPage(thread: thread),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        )
+                      : Center(
+                          child: Text(
+                            "لا توجد مواضيع",
+                            style: TextStyle(
+                                fontSize: 16.sp, color: Colors.grey),
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createNewThread,
+        backgroundColor: AppColors.primaryColor,
+        icon: const Icon(Icons.add),
+        label: const Text("موضوع جديد"),
+      ),
+    );
+  }
+}
+
+// بطاقة عرض الثريد بأسلوب عصري
+class ModernThreadCard extends StatelessWidget {
+  final ThreadModel thread;
+  final VoidCallback onTap;
+
+  const ModernThreadCard({
+    Key? key,
+    required this.thread,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isQnA = thread.classification == 'Q&A';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: EdgeInsets.only(bottom: 16.h),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(16.w),
+          child: Row(
+            children: [
+              // أيقونة الموضوع مع خلفية متدرجة
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: isQnA
+                        ? [Colors.blueAccent, Colors.lightBlueAccent]
+                        : [Colors.green, Colors.lightGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                padding: EdgeInsets.all(12.w),
+                child: Icon(
+                  isQnA ? Icons.question_answer : Icons.chat,
+                  color: Colors.white,
+                  size: 24.sp,
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      thread.title,
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      "بقلم ${thread.creatorName}",
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    // عرض الوسوم في صف واحد
+                    Wrap(
+                      spacing: 6.w,
+                      children: thread.tags.map((tag) {
+                        return Chip(
+                          label: Text(
+                            tag,
+                            style: TextStyle(fontSize: 12.sp),
+                          ),
+                          backgroundColor:
+                              AppColors.primaryColor.withOpacity(0.1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  Icon(
+                    Icons.message,
+                    size: 18.sp,
+                    color: Colors.grey[600],
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    "${thread.repliesCount}",
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: Colors.grey[600],
+                    ),
+                  )
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+//////// البشع
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../models/thread_model.dart.dart';
+import '../theme/app_colors.dart'; // يمكنك تعديلها أو الاستغناء عنها
+import 'thread_page.dart';
+import 'create_thread_form.dart';
+
+class DiscussionRoomPage extends StatefulWidget {
+  const DiscussionRoomPage({Key? key}) : super(key: key);
+
+  @override
+  State<DiscussionRoomPage> createState() => _DiscussionRoomPageState();
+}
+
+class _DiscussionRoomPageState extends State<DiscussionRoomPage> {
+  // قائمة تجريبية من الثريدات (يمكن استبدالها ببيانات من الـ API)
+  List<ThreadModel> allThreads = [
+    ThreadModel(
+      id: "1",
+      title: "مرحبا! لدي سؤال عن المشروع",
+      creatorName: "Abeer",
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      repliesCount: 5,
+      classification: 'Q&A',
+      content: "تفاصيل أكثر حول السؤال...",
+      tags: ["مشروع", "Flutter", "استفسار"],
+    ),
+    ThreadModel(
+      id: "2",
+      title: "اقتراح تطوير ميزة البحث",
+      creatorName: "Mayada",
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      repliesCount: 2,
+      classification: 'General',
+      content: "لدي فكرة حول تحسين واجهة البحث...",
+      tags: ["اقتراح", "تطوير", "UI/UX"],
+    ),
+  ];
+
+  // خيارات الفلترة
+  final List<String> filterOptions = ['All', 'Q&A', 'General'];
+  String _selectedFilter = 'All';
+
+  // للبحث التجريبي
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredThreads = _getFilteredThreads();
+
+    return Scaffold(
+      // جعل خلفية الصفحة كاملة بلون فاتح (أو حسب حاجتك)
+      backgroundColor: Colors.grey[100],
+
+      body: SafeArea(
+        child: Column(
+          children: [
+            // الجزء العلوي (بانر + شريط البحث + الفلترة)
+            _buildHeader(context),
+
+            // توسيع لعرض قائمة الثريدات
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: filteredThreads.isNotEmpty
+                      ? ListView.separated(
+                    key: ValueKey<String>(_selectedFilter),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: filteredThreads.length,
+                    separatorBuilder: (_, __) => SizedBox(height: 12.h),
+                    itemBuilder: (context, index) {
+                      final thread = filteredThreads[index];
+                      return ThreadCard(
+                        thread: thread,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ThreadPage(thread: thread),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  )
+                      : Center(
+                    child: Text(
+                      "لا توجد مواضيع بهذا التصنيف",
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      // زر إضافة موضوع جديد
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createNewThread,
+        backgroundColor: AppColors.primaryColor,
+        icon: const Icon(Icons.add),
+        label: const Text("موضوع جديد"),
+      ),
+    );
+  }
+
+  // ويدجت رأس الصفحة (بانر + بحث + فلترة)
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      // خلفية متدرّجة اللون لإضفاء عصرية وجمال
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF326E80), Color(0xFF64B5F6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(2),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        top: 10.h,
+        bottom: 20.h,
+        left: 16.w,
+        right: 16.w,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // عنوان ترحيبي
+          Text(
+            "مرحبًا بك في غرفة النقاش",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            "انضمّ إلى النقاش أو اطرح أسئلتك",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14.sp,
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // صندوق البحث
+          Container(
+            height: 40.h,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}), // تحدّث الصفحة للبحث
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                hintText: "ابحث عن موضوع...",
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.only(left: 8.w, right: 8.w, bottom: 8.h),
+              ),
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // شريط الفلترة (ChoiceChips)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: filterOptions.map((option) {
+                final isSelected = _selectedFilter == option;
+                final label = option == 'All'
+                    ? 'الكل'
+                    : option == 'Q&A'
+                    ? 'سؤال وجواب'
+                    : 'نقاش عام';
+                return Padding(
+                  padding: EdgeInsets.only(right: 8.w),
+                  child: ChoiceChip(
+                    label: Text(
+                      label,
+                      style: TextStyle(fontSize: 14.sp),
+                    ),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedFilter = option;
+                      });
+                    },
+                    selectedColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: Colors.white.withOpacity(0.1),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.black : Colors.black,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<ThreadModel> _getFilteredThreads() {
+    // البحث النصي
+    final query = _searchController.text.trim().toLowerCase();
+    // فلترة حسب الفئة
+    List<ThreadModel> result = _selectedFilter == 'All'
+        ? allThreads
+        : allThreads.where((t) => t.classification == _selectedFilter).toList();
+
+    // فلترة حسب النص المدخل في البحث (العنوان أو الوسوم)
+    if (query.isNotEmpty) {
+      result = result.where((thread) {
+        final titleMatch = thread.title.toLowerCase().contains(query);
+        final tagsMatch = thread.tags.any((tag) => tag.toLowerCase().contains(query));
+        return titleMatch || tagsMatch;
+      }).toList();
+    }
+
+    return result;
+  }
+
+  Future<void> _createNewThread() async {
+    // عرض الفورم في حوار
+    final newThread = await showDialog<ThreadModel>(
+      context: context,
+      builder: (_) => const CreateThreadPage(),
+    );
+
+    // إضافة الموضوع الجديد إلى القائمة
+    if (newThread != null) {
+      setState(() {
+        allThreads.insert(0, newThread);
+      });
+    }
+  }
+}
+
+// بطاقة لعرض معلومات الثريد بتصميم عصري
+class ThreadCard extends StatelessWidget {
+  final ThreadModel thread;
+  final VoidCallback onTap;
+  const ThreadCard({Key? key, required this.thread, required this.onTap})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isQnA = thread.classification == 'Q&A';
+    final Color iconColor = isQnA ? Colors.blueAccent : Colors.deepPurple;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12.r),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        margin: EdgeInsets.zero,
+        padding: EdgeInsets.all(16.w),
+        child: Row(
+          children: [
+            // أيقونة حسب التصنيف
+            Container(
+              width: 50.w,
+              height: 50.w,
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isQnA ? Icons.question_answer : Icons.people,
+                color: iconColor,
+                size: 24.sp,
+              ),
+            ),
+            SizedBox(width: 16.w),
+
+            // معلومات الثريد
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    thread.title,
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  SizedBox(height: 6.h),
+                  Text(
+                    "بقلم ${thread.creatorName} - ${_formatTime(thread.createdAt)}",
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // عدد الردود
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.forum, size: 16, color: AppColors.primaryColor),
+                  SizedBox(width: 4.w),
+                  Text(
+                    "${thread.repliesCount}",
+                    style: const TextStyle(color: AppColors.primaryColor),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(DateTime dateTime) {
+    // يمكنك تخصيص طريقة عرض التاريخ/الوقت
+    final diff = DateTime.now().difference(dateTime);
+    if (diff.inDays > 0) {
+      return "${diff.inDays} يوم مضى";
+    } else if (diff.inHours > 0) {
+      return "${diff.inHours} ساعة مضت";
+    } else if (diff.inMinutes > 0) {
+      return "${diff.inMinutes} دقيقة مضت";
+    } else {
+      return "الآن";
+    }
+  }
+}

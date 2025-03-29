@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/auth_service.dart';
 import 'regstraion_page.dart';
 import 'home_page.dart';
@@ -18,10 +19,8 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // Replace these with your preferred teal/gray shades:
   static const Color primaryTeal = Color(0xFF2A6776);
-  static const Color fieldBorderTeal = Color(0xFF416D6D);
-  static const Color loginButtonColor = Color(0xFFE0E0E0); // light gray
+  static const Color loginButtonColor = Color(0xFFE0E0E0);
   static const Color backgroundWhite = Colors.white;
 
   void _login() async {
@@ -51,209 +50,274 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // The overall background is white (bottom part of the screen):
       backgroundColor: backgroundWhite,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Top teal section
-            Container(
-              width: double.infinity,
-              color: primaryTeal,
-              padding: const EdgeInsets.only(top: 70, bottom: 80),
-              child: Column(
-                children: const [
-                  Text(
-                    "CIRCLE",
-                    style: TextStyle(
-                      fontSize: 70,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0,
-                    ),
+      resizeToAvoidBottomInset: true,
+      body: OrientationBuilder(
+        builder: (context, orientation) {
+          return orientation == Orientation.portrait
+              ? _buildPortraitLayout()
+              : _buildLandscapeLayout();
+        },
+      ),
+    );
+  }
+
+  Widget _buildPortraitLayout() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            color: primaryTeal,
+            padding: EdgeInsets.only(top: 70.h, bottom: 80.h),
+            child: Column(
+              children: [
+                Text(
+                  "CIRCLE",
+                  style: TextStyle(
+                    fontSize: 60.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
-                  SizedBox(height: 2),
-                  Text(
-                    "Enhance your skills and build a strong\nprofessional network",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontSize: 20),
-                  ),
-                ],
-              ),
+                ),
+                SizedBox(height: 10.h),
+                Text(
+                  "Enhance your skills and build a strong\nprofessional network",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 16.sp),
+                ),
+              ],
             ),
+          ),
+          SizedBox(height: 40.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 35.w),
+            child: _buildPortraitForm(),
+          ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 40),
-
-            // Form fields
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 35),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Email field
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        labelStyle: const TextStyle(color: primaryTeal),
-                        fillColor: Colors.white,
-                        filled: true,
-                        border: OutlineInputBorder(
-                          borderSide: const BorderSide(color: primaryTeal),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: primaryTeal),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
-                            color: primaryTeal,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        final emailPattern = RegExp(
-                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-                        );
-                        if (!emailPattern.hasMatch(value)) {
-                          return 'Enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Password field
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        labelStyle: const TextStyle(color: primaryTeal),
-                        fillColor: Colors.white,
-                        filled: true,
-                        border: OutlineInputBorder(
-                          borderSide: const BorderSide(color: primaryTeal),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: primaryTeal),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(
-                            color: primaryTeal,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: primaryTeal,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 30),
-
-                    // Login button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: loginButtonColor,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child:
-                        _isLoading
-                            ? const CircularProgressIndicator(
-                          color: primaryTeal,
-                        )
-                            : const Text(
-                          'Login',
-                          style: TextStyle(
-                            color: primaryTeal,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 80),
-
-                    // A small separator or divider
-                    SizedBox(
-                      width: 30,
-                      child: Divider(color: primaryTeal, thickness: 5),
-                    ),
-
-                    const SizedBox(height: 80),
-
-                    // Sign Up button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => CreateAccountPage(),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryTeal,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        child: const Text(
-                          'Sign Up',
-                          style: TextStyle(color: Colors.white, fontSize: 18),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-                  ],
+  Widget _buildLandscapeLayout() {
+    return SingleChildScrollView(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 1,
+            child: Container(
+              height: 1.sh,
+              color: primaryTeal,
+              child: Center(
+                child: Text(
+                  "CIRCLE",
+                  style: TextStyle(
+                    fontSize: 40.sp,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
-          ],
+          ),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Container(
+                constraints: BoxConstraints(maxWidth: 500.w),
+                padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 30.h),
+                child: _buildLandscapeForm(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortraitForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          _buildEmailField(),
+          SizedBox(height: 20.h),
+          _buildPasswordField(),
+          SizedBox(height: 30.h),
+          _buildLoginButton(),
+          SizedBox(height: 60.h),
+          SizedBox(width: 30.w, child: Divider(color: primaryTeal, thickness: 5)),
+          SizedBox(height: 60.h),
+          _buildSignUpButton(),
+          SizedBox(height: 30.h),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLandscapeForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          _buildEmailField(fontSize: 14.sp),
+          SizedBox(height: 15.h),
+          _buildPasswordField(fontSize: 14.sp),
+          SizedBox(height: 25.h),
+          _buildLoginButton(height: 80.h, fontSize: 8.sp, isLandscape: true),
+          SizedBox(height: 50.h),
+          SizedBox(width: 25.w, child: Divider(color: primaryTeal, thickness: 4)),
+          SizedBox(height: 50.h),
+          _buildSignUpButton(height: 80.h, fontSize: 8.sp, isLandscape: true),
+          SizedBox(height: 20.h),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmailField({double? fontSize}) {
+    return TextFormField(
+      controller: _emailController,
+      keyboardType: TextInputType.emailAddress,
+      style: TextStyle(fontSize: fontSize ?? 16.sp),
+      decoration: InputDecoration(
+        labelText: 'Email',
+        labelStyle: TextStyle(color: primaryTeal),
+        fillColor: Colors.white,
+        filled: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30.r),
+          borderSide: BorderSide(color: primaryTeal),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30.r),
+          borderSide: BorderSide(color: primaryTeal),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30.r),
+          borderSide: BorderSide(color: primaryTeal, width: 2),
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Please enter your email';
+        final emailPattern = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w]{2,4}$');
+        if (!emailPattern.hasMatch(value)) return 'Enter a valid email';
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPasswordField({double? fontSize}) {
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: _obscurePassword,
+      style: TextStyle(fontSize: fontSize ?? 16.sp),
+      decoration: InputDecoration(
+        labelText: 'Password',
+        labelStyle: TextStyle(color: primaryTeal),
+        fillColor: Colors.white,
+        filled: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30.r),
+          borderSide: BorderSide(color: primaryTeal),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30.r),
+          borderSide: BorderSide(color: primaryTeal),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30.r),
+          borderSide: BorderSide(color: primaryTeal, width: 2),
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+            color: primaryTeal,
+          ),
+          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Please enter your password';
+        if (value.length < 6) return 'Password must be at least 6 characters';
+        return null;
+      },
+    );
+  }
+
+  Widget _buildLoginButton({double? height, double? fontSize, bool isLandscape = false}) {
+    final button = SizedBox(
+      height: height ?? 50.h,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _login,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: loginButtonColor,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30.r),
+          ),
+        ),
+        child: _isLoading
+            ? CircularProgressIndicator(color: primaryTeal)
+            : Text(
+          'Login',
+          style: TextStyle(
+            color: primaryTeal,
+            fontSize: fontSize ?? 18.sp,
+          ),
         ),
       ),
     );
+
+    return isLandscape
+        ? Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 300.w),
+        child: button,
+      ),
+    )
+        : button;
+  }
+
+  Widget _buildSignUpButton({double? height, double? fontSize, bool isLandscape = false}) {
+    final button = SizedBox(
+      height: height ?? 50.h,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => CreateAccountPage()),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryTeal,
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30.r),
+          ),
+        ),
+        child: Text(
+          'Sign Up',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: fontSize ?? 18.sp,
+          ),
+        ),
+      ),
+    );
+
+    return isLandscape
+        ? Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 300.w),
+        child: button,
+      ),
+    )
+        : button;
   }
 }
