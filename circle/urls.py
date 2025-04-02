@@ -8,5 +8,6 @@ def home(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("accounts.urls")),  # جعل الحسابات هي الصفحة الرئيسية
+     path('api/', include('fields.urls')),  # إضافة مسار API للمجالات
 ]
 

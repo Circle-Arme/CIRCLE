@@ -14,3 +14,5 @@ data to test login
     "email": "testuser@example.com",
     "password": "Test@1234"
 }
+
+to open fileds page http://127.0.0.1:8000/api/fields
