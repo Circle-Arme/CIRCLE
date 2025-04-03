@@ -1,21 +1,19 @@
 from django.contrib import admin
-from .models import Field
+from .models import Field, Community, UserCommunity
 
-class FieldAdmin(admin.ModelAdmin):
-    list_display = ('name', 'created_at', 'created_by')
-    search_fields = ('name',)
-    list_filter = ('created_at',)
-    ordering = ('-created_at',)
-
-    def has_add_permission(self, request):
-        return request.user.is_superuser  # السماح فقط للأدمن بالإضافة
-
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser  # السماح فقط للأدمن بالتعديل
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser  # السماح فقط للأدمن بالحذف
-
-# حل مشكلة التكرار في التسجيل
+# تأكد من عدم تسجيل Field أكثر من مرة
 if not admin.site.is_registered(Field):
-    admin.site.register(Field, FieldAdmin)
+    @admin.register(Field)
+    class FieldAdmin(admin.ModelAdmin):
+        list_display = ('name', 'created_at', 'created_by')
+
+if not admin.site.is_registered(Community):
+    @admin.register(Community)
+    class CommunityAdmin(admin.ModelAdmin):
+        list_display = ('name', 'field', 'created_at', 'created_by')
+
+if not admin.site.is_registered(UserCommunity):
+    @admin.register(UserCommunity)
+    class UserCommunityAdmin(admin.ModelAdmin):
+        list_display = ('user', 'community')
+
