@@ -2,12 +2,11 @@ from django.db import models
 from django.conf import settings
 
 class Field(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)  # وصف المجال
+    image = models.ImageField(upload_to='field_images/', blank=True, null=True)  # صورة المجال
     created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="fields_created"
-    )  # اليوزر الذي أنشأ الفيلد
-
+    
     def __str__(self):
         return self.name
 
