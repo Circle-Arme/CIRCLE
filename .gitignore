@@ -25,3 +25,6 @@ env/
 
 staticfiles/
 media/
+
+
+requirements.txt
