@@ -7,7 +7,7 @@ class CustomUserManager(BaseUserManager):
             raise ValueError("The Email field must be set")
         
         email = self.normalize_email(email)
-        extra_fields.setdefault("is_active", True)  # تأكد من أن الحساب نشط عند إنشائه
+        extra_fields.setdefault("is_active", True)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -16,16 +16,25 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
-        extra_fields.setdefault("is_active", True)  # تأكد من أن الحساب الفائق نشط
+        extra_fields.setdefault("is_active", True)
+        extra_fields.setdefault("user_type", "admin")  # ضروري نحدد نوع المستخدم
+
         return self.create_user(email, password, **extra_fields)
 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
-    username = None  # إزالة username تمامًا لجعل البريد الإلكتروني هو الحقل الأساسي
+    username = None  # نستخدم الإيميل فقط
     first_name = models.CharField(max_length=30, blank=True, null=True)
     last_name = models.CharField(max_length=30, blank=True, null=True)
 
+    USER_TYPE_CHOICES = [
+        ('normal', 'Normal User'),
+        ('organization', 'Organization User'),
+        ('admin', 'Admin'),
+    ]
+    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='normal')
+
     objects = CustomUserManager()
 
-    USERNAME_FIELD = "email"  # استخدام البريد الإلكتروني كمعرف رئيسي
-    REQUIRED_FIELDS = ["first_name", "last_name"]  # الحقول المطلوبة عند إنشاء superuser
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["first_name", "last_name"]

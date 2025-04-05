@@ -3,10 +3,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from .serializers import UserSerializer
+from .permissions import IsAdminUser
 
 User = get_user_model()
-#تقريبا هنا غيرت انو يستخدم الايميل ما بتذكر بالضبط بس شاتو غير لي شس
-# ✅ تسجيل الدخول باستخدام البريد الإلكتروني
+
+# ✅ تسجيل الدخول
 @api_view(['POST'])
 def login_api(request):
     email = request.data.get('email')
@@ -24,19 +26,17 @@ def login_api(request):
     return Response({
         'refresh': str(refresh),
         'access': str(refresh.access_token),
+        'user': UserSerializer(user).data  # نُرسل بيانات المستخدم أيضًا
     })
 
 
-# ✅ إنشاء حساب جديد
+# ✅ إنشاء حساب عادي (normal user)
 @api_view(['POST'])
 def register_api(request):
-    print("🚀 New register request:")
-    print(request.data)
     email = request.data.get('email')
     password = request.data.get('password')
     full_name = request.data.get('full_name', '')
 
-    # تقسيم الاسم الكامل إلى first_name و last_name
     first_name, last_name = '', ''
     if full_name:
         parts = full_name.strip().split(' ', 1)
@@ -51,15 +51,49 @@ def register_api(request):
         email=email,
         password=password,
         first_name=first_name,
-        last_name=last_name
+        last_name=last_name,
+        user_type='normal'
     )
 
     return Response({'message': 'تم إنشاء الحساب بنجاح!'}, status=201)
 
 
-
-# ✅ صفحة محمية (للاختبار)
+# ✅ صفحة محمية (اختبار)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def protected_view(request):
     return Response({'message': f'مرحبًا {request.user.email}, هذه صفحة محمية!'})
+
+
+# ✅ عرض كل مستخدمي المنظمات
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def list_organization_users(request):
+    users = User.objects.filter(user_type='organization')
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data)
+
+
+# ✅ إنشاء مستخدم منظمة
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def create_organization_user(request):
+    data = request.data.copy()
+    data['user_type'] = 'organization'
+    serializer = UserSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=201)
+    return Response(serializer.errors, status=400)
+
+
+# ✅ حذف مستخدم منظمة
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def delete_organization_user(request, user_id):
+    try:
+        user = User.objects.get(id=user_id, user_type='organization')
+        user.delete()
+        return Response({'message': 'تم حذف المستخدم بنجاح!'})
+    except User.DoesNotExist:
+        return Response({'error': 'المستخدم غير موجود'}, status=404)
