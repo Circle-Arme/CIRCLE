@@ -98,8 +98,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'circle_db',  # اسم قاعدة البيانات
-        'USER': 'circle_user',  # اسم المستخدم
-        'PASSWORD': 'AbeerAbdo@2001',  # كلمة المرور الصحيحة
+        'USER': 'root',  # اسم المستخدم
+        'PASSWORD': 'admin123',  # كلمة المرور الصحيحة
         'HOST': 'localhost',
         'PORT': '3306',
     }

@@ -30,10 +30,19 @@ def login_api(request):
 # ✅ إنشاء حساب جديد
 @api_view(['POST'])
 def register_api(request):
+    print("🚀 New register request:")
+    print(request.data)
     email = request.data.get('email')
     password = request.data.get('password')
-    first_name = request.data.get('first_name', '')
-    last_name = request.data.get('last_name', '')
+    full_name = request.data.get('full_name', '')
+
+    # تقسيم الاسم الكامل إلى first_name و last_name
+    first_name, last_name = '', ''
+    if full_name:
+        parts = full_name.strip().split(' ', 1)
+        first_name = parts[0]
+        if len(parts) > 1:
+            last_name = parts[1]
 
     if User.objects.filter(email=email).exists():
         return Response({'error': 'البريد الإلكتروني مأخوذ بالفعل'}, status=400)
@@ -46,6 +55,7 @@ def register_api(request):
     )
 
     return Response({'message': 'تم إنشاء الحساب بنجاح!'}, status=201)
+
 
 
 # ✅ صفحة محمية (للاختبار)

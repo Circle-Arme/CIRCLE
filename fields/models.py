@@ -3,10 +3,10 @@ from django.conf import settings
 
 class Field(models.Model):
     name = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True)  # وصف المجال
-    image = models.ImageField(upload_to='field_images/', blank=True, null=True)  # صورة المجال
+    description = models.TextField(blank=True, null=True)
+    image = models.ImageField(upload_to='field_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
         return self.name
 
@@ -16,12 +16,13 @@ class Field(models.Model):
 
 
 class Community(models.Model):
-    field = models.ForeignKey(Field, on_delete=models.CASCADE, related_name="communities")  # كل مجتمع تابع لفيلد
+    field = models.ForeignKey(Field, on_delete=models.CASCADE, related_name="communities")
     name = models.CharField(max_length=255, unique=True)
+    image = models.ImageField(upload_to='community_images/', blank=True, null=True)  # 🔹 مضاف حديثاً
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="communities_created"
-    )  # الأدمن الذي أنشأ المجتمع
+    )
 
     def __str__(self):
         return self.name
@@ -36,7 +37,7 @@ class UserCommunity(models.Model):
     community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name="memberships")
 
     class Meta:
-        unique_together = ('user', 'community')  # منع الانضمام لنفس المجتمع أكثر من مرة
+        unique_together = ('user', 'community')
         verbose_name = "User Community"
         verbose_name_plural = "User Communities"
 

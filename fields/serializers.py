@@ -7,6 +7,8 @@ class FieldSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CommunitySerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(read_only=True)  # 🔹 لإرجاع رابط الصورة
+
     class Meta:
         model = Community
         fields = '__all__'
