@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Field, Community, UserCommunity, ChatRoom
+from ChatRoom.serializers import ChatRoomSerializer
+from .models import Field, Community, UserCommunity , ChatRoom
 
 class FieldSerializer(serializers.ModelSerializer):
     class Meta:
@@ -7,6 +8,7 @@ class FieldSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CommunitySerializer(serializers.ModelSerializer):
+    chat_room = ChatRoomSerializer(read_only=True)  # تضمين الغرفة الحوارية في السيريالايزر
     class Meta:
         model = Community
         fields = '__all__'
@@ -15,8 +17,3 @@ class UserCommunitySerializer(serializers.ModelSerializer):
     class Meta:
         model = UserCommunity
         fields = '__all__'
-
-class ChatRoomSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ChatRoom
-        fields = ['id', 'community', 'name', 'created_at', 'created_by']
