@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'accounts',
     'fields',
+    'jobs',
+    'organizations',
 ]
 
 MIDDLEWARE = [
@@ -99,7 +101,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'circle_db',  # اسم قاعدة البيانات
         'USER': 'root',  # اسم المستخدم
-        'PASSWORD': 'admin123',  # كلمة المرور الصحيحة
+        'PASSWORD': 'AbeerAbdo@2001',  # كلمة المرور الصحيحة
         'HOST': 'localhost',
         'PORT': '3306',
     }
