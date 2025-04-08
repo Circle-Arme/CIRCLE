@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from .models import Field, Community, UserCommunity
 from .serializers import FieldSerializer, CommunitySerializer, UserCommunitySerializer
 
@@ -32,3 +33,12 @@ class UserCommunityViewSet(viewsets.ModelViewSet):
             return Response({"detail": "أنت بالفعل عضو في هذا المجتمع!"}, status=400)
         UserCommunity.objects.create(user=user, community=community)
         return Response({"detail": "تم الانضمام بنجاح!"}, status=201)
+    
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def my(self, request):
+        user = request.user
+        user_communities = UserCommunity.objects.filter(user=user).select_related('community')
+        communities = [uc.community for uc in user_communities]
+        serializer = CommunitySerializer(communities, many=True, context={'request': request})
+        return Response(serializer.data)

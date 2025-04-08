@@ -2,13 +2,14 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer
+from .serializers import UserSerializer, UserProfileSerializer
 from .permissions import IsAdminUser
+from .models import UserProfile
 
 User = get_user_model()
 
-# ✅ تسجيل الدخول
 @api_view(['POST'])
 def login_api(request):
     email = request.data.get('email')
@@ -26,11 +27,9 @@ def login_api(request):
     return Response({
         'refresh': str(refresh),
         'access': str(refresh.access_token),
-        'user': UserSerializer(user).data  # نُرسل بيانات المستخدم أيضًا
+        'user': UserSerializer(user).data
     })
 
-
-# ✅ إنشاء حساب عادي (normal user)
 @api_view(['POST'])
 def register_api(request):
     email = request.data.get('email')
@@ -57,15 +56,11 @@ def register_api(request):
 
     return Response({'message': 'تم إنشاء الحساب بنجاح!'}, status=201)
 
-
-# ✅ صفحة محمية (اختبار)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def protected_view(request):
     return Response({'message': f'مرحبًا {request.user.email}, هذه صفحة محمية!'})
 
-
-# ✅ عرض كل مستخدمي المنظمات
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def list_organization_users(request):
@@ -73,8 +68,6 @@ def list_organization_users(request):
     serializer = UserSerializer(users, many=True)
     return Response(serializer.data)
 
-
-# ✅ إنشاء مستخدم منظمة
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def create_organization_user(request):
@@ -86,8 +79,6 @@ def create_organization_user(request):
         return Response(serializer.data, status=201)
     return Response(serializer.errors, status=400)
 
-
-# ✅ حذف مستخدم منظمة
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def delete_organization_user(request, user_id):
@@ -97,3 +88,10 @@ def delete_organization_user(request, user_id):
         return Response({'message': 'تم حذف المستخدم بنجاح!'})
     except User.DoesNotExist:
         return Response({'error': 'المستخدم غير موجود'}, status=404)
+
+class UserProfileDetailView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user.profile
