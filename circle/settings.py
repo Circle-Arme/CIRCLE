@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'fields',
     'jobs',
     'organizations',
+    #'communities',
 ]
 
 MIDDLEWARE = [

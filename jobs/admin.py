@@ -1,9 +1,5 @@
 from django.contrib import admin
-from .models import JobOpportunity
-from organizations.models import Organization
+from .models import JobOpportunity, JobReply
 
-class JobOpportunityAdmin(admin.ModelAdmin):
-    list_display = ('title', 'organization', 'posted_at')
-    search_fields = ('title',)
-
-admin.site.register(JobOpportunity, JobOpportunityAdmin)
+admin.site.register(JobOpportunity)
+admin.site.register(JobReply)

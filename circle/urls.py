@@ -11,7 +11,13 @@ def home(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("accounts.urls")),  # جعل الحسابات هي الصفحة الرئيسية
-     path('api/', include('fields.urls')),  # إضافة مسار API للمجالات
+    path('api/', include('fields.urls')),  # إضافة مسار API للمجالات
+  # circle/urls.py (الرئيسي)
+    path('api/jobs/', include('jobs.urls')),
+    path('api/', include('organizations.urls')),
+
+
+
 ]
 
 
