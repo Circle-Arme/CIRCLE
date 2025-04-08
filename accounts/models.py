@@ -1,7 +1,31 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
-class CustomUser(AbstractUser):
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("The Email field must be set")
+        
+        email = self.normalize_email(email)
+        extra_fields.setdefault("is_active", True)  # تأكد من أن الحساب نشط عند إنشائه
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
 
-    def __str__(self):
-        return self.username
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)  # تأكد من أن الحساب الفائق نشط
+        return self.create_user(email, password, **extra_fields)
+
+class CustomUser(AbstractUser):
+    email = models.EmailField(unique=True)
+    username = None  # إزالة username تمامًا لجعل البريد الإلكتروني هو الحقل الأساسي
+    first_name = models.CharField(max_length=30, blank=True, null=True)
+    last_name = models.CharField(max_length=30, blank=True, null=True)
+
+    objects = CustomUserManager()
+
+    USERNAME_FIELD = "email"  # استخدام البريد الإلكتروني كمعرف رئيسي
+    REQUIRED_FIELDS = ["first_name", "last_name"]  # الحقول المطلوبة عند إنشاء superuser
