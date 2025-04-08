@@ -16,17 +16,19 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from accounts.views import UserListCreateAPIView
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
 
+from accounts.views import login_api, protected_view, register_api
+
 
 urlpatterns = [
-    path("api/users/", UserListCreateAPIView.as_view(), name="user_list_create"),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/login/', login_api, name='login_api'),
+    path('api/register/', register_api, name='register_api'),
+    path('api/protected/', protected_view, name='protected_view'),    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include('fields.urls')),
     path('api/', include('ChatRoom.urls')),
