@@ -2,8 +2,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import ChatRoom, Thread, Reply
-from ChatRoom.serializers import ChatRoomSerializer, ThreadSerializer, ReplySerializer
+from .models import ChatRoom, Thread, Reply, Star
+from ChatRoom.serializers import ChatRoomSerializer, ThreadSerializer, ReplySerializer, StarSerializer
 from fields.models import Community, UserCommunity
 
 
@@ -49,3 +49,12 @@ class ReplyViewSet(viewsets.ModelViewSet):
     queryset = Reply.objects.all()
     serializer_class = ReplySerializer
     permission_classes = [IsAuthenticated]
+
+
+class StarViewSet(viewsets.ModelViewSet):
+    queryset = Star.objects.all()
+    serializer_class = StarSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Star.objects.filter(user=self.request.user)

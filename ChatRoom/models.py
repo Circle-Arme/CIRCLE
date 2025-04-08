@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models
 
 
@@ -39,3 +40,28 @@ class Reply(models.Model):
     class Meta:
         verbose_name = "ChatRoom"
         verbose_name_plural = "ChatRooms"
+
+
+
+
+User = get_user_model()
+
+class Star(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    thread = models.ForeignKey(Thread, null=True, blank=True, on_delete=models.CASCADE, related_name='stars')
+    reply = models.ForeignKey(Reply, null=True, blank=True, on_delete=models.CASCADE, related_name='stars')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'thread', 'reply')
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.thread and not self.reply:
+            raise ValidationError("يجب اختيار Thread أو Reply")
+        if self.thread and self.reply:
+            raise ValidationError("لا يمكن عمل Star على Thread وReply في نفس الوقت")
+
+    def __str__(self):
+        target = self.thread or self.reply
+        return f"{self.user} starred {target}"
