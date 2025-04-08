@@ -23,7 +23,7 @@ class Community(models.Model):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="communities_created"
     )  # الأدمن الذي أنشأ المجتمع
-    chat_room = models.OneToOneField('ChatRoom.ChatRoom', on_delete=models.CASCADE, related_name='community', null=True, blank=True)
+    # chat_room = models.OneToOneField('ChatRoom.ChatRoom', on_delete=models.CASCADE, related_name='community', null=True, blank=True)
 
 
     def __str__(self):
