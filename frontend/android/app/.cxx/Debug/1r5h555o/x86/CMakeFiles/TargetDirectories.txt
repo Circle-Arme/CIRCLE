@@ -1,0 +1,2 @@
+C:/Users/ryham/CIRCLE/frontend/android/app/.cxx/Debug/1r5h555o/x86/CMakeFiles/edit_cache.dir
+C:/Users/ryham/CIRCLE/frontend/android/app/.cxx/Debug/1r5h555o/x86/CMakeFiles/rebuild_cache.dir
