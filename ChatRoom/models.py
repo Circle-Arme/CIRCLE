@@ -46,7 +46,7 @@ class Reply(models.Model):
 
 User = get_user_model()
 
-class Star(models.Model):
+class Like(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     thread = models.ForeignKey(Thread, null=True, blank=True, on_delete=models.CASCADE, related_name='stars')
     reply = models.ForeignKey(Reply, null=True, blank=True, on_delete=models.CASCADE, related_name='stars')

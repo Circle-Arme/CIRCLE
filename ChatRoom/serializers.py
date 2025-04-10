@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ChatRoom, Thread, Reply, Star
+from .models import ChatRoom, Thread, Reply, Like
 
 
 class ChatRoomSerializer(serializers.ModelSerializer):
@@ -8,21 +8,38 @@ class ChatRoomSerializer(serializers.ModelSerializer):
         fields = ['id', 'community', 'name', 'created_at', 'created_by']
 
 class ReplySerializer(serializers.ModelSerializer):
+    likes_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Reply
-        fields = ['id', 'reply_text', 'created_by', 'created_at', 'parent_reply']
+        fields = ['id', 'reply_text', 'created_by', 'created_at', 'parent_reply', 'likes_count']
+
+        def get_likes_count(self, obj):
+            return obj.like_set.count()
 
 class ThreadSerializer(serializers.ModelSerializer):
     replies = ReplySerializer(many=True, read_only=True)
+    replies_count = serializers.SerializerMethodField()
+    likes_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Thread
-        fields = ['id', 'chat_room', 'title', 'details', 'created_by', 'file_attachment', 'created_at', 'replies']
+        fields = [
+            'id', 'chat_room', 'title', 'details', 'created_by', 
+            'file_attachment', 'created_at', 'replies', 
+            'replies_count', 'likes_count'
+        ]
+
+        def get_replies_count(self, obj):
+            return obj.replies.count()
+
+        def get_likes_count(self, obj):
+            return obj.like_set.filter(reply__isnull=True).count()
 
 
-class StarSerializer(serializers.ModelSerializer):
+class LikeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Star
+        model = Like
         fields = ['id', 'user', 'thread', 'reply', 'created_at']
         read_only_fields = ['user', 'created_at']
 
