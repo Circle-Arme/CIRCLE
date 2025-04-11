@@ -1,13 +1,15 @@
-from rest_framework import viewsets, permissions
+# views.py
+from rest_framework import viewsets
 from .models import Organization
 from .serializers import OrganizationSerializer
-
-# الصلاحيات للمشرف فقط
-class IsAdminOnly(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user and request.user.is_staff
+from .permissions import IsAdminUserOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-    permission_classes = [IsAdminOnly]
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUserOnly()]
+        return [IsAuthenticatedOrReadOnly()]
