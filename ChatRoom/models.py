@@ -2,17 +2,26 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 
-
 class ChatRoom(models.Model):
-    community = models.OneToOneField("fields.Community", on_delete=models.CASCADE, related_name="chat_room")
-    name = models.CharField(max_length=255, default="Main Chat")
+    ROOM_TYPE_CHOICES = [
+        ('discussion_general', 'General Discussion'),
+        ('discussion_advanced', 'Advanced Discussion'),
+        ('job_opportunities', 'Job Opportunities'),
+    ]
+
+    community = models.ForeignKey("fields.Community", on_delete=models.CASCADE, related_name="chat_rooms")
+    type = models.CharField(max_length=30, choices=ROOM_TYPE_CHOICES, default='discussion_general')
+    name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_chat_rooms"
     )
 
+    class Meta:
+        unique_together = ('community', 'type')
+
     def __str__(self):
-        return f"ChatRoom for {self.community.name}"
+        return f"{self.get_type_display()} room for {self.community.name}"
 
 
 class Thread(models.Model):
@@ -47,7 +56,6 @@ class Reply(models.Model):
 
 
 User = get_user_model()
-
 
 class Like(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

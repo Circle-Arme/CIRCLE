@@ -16,9 +16,15 @@ class Field(models.Model):
 
 
 class Community(models.Model):
+    LEVEL_CHOICES = [
+        ('beginner', 'Beginner'),
+        ('advanced', 'Advanced'),
+        ('both', 'Both'),
+    ]
     field = models.ForeignKey(Field, on_delete=models.CASCADE, related_name="communities")
     name = models.CharField(max_length=255, unique=True)
     image = models.ImageField(upload_to='community_images/', blank=True, null=True)  # 🔹 مضاف حديثاً
+    level = models.CharField(max_length=20, choices=LEVEL_CHOICES, default='beginner')
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="communities_created"

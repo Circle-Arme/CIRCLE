@@ -2,30 +2,40 @@ from rest_framework import serializers
 from .models import ChatRoom, Thread, Reply, Like
 
 class ChatRoomSerializer(serializers.ModelSerializer):
+    type_display = serializers.CharField(source='get_type_display', read_only=True)
+
     class Meta:
         model = ChatRoom
-        fields = ['id', 'community', 'name', 'created_at', 'created_by']
+        fields = ['id', 'community', 'type', 'type_display', 'name', 'created_at', 'created_by']
+
 
 class ReplySerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField()
+    creator_name = serializers.SerializerMethodField()  # ✅ الاسم الكامل للمستخدم
 
     class Meta:
         model = Reply
-        fields = ['id','thread', 'reply_text', 'created_by', 'created_at', 'parent_reply', 'likes_count']
+        fields = ['id', 'thread', 'reply_text', 'created_by', 'creator_name', 'created_at', 'parent_reply', 'likes_count']
 
     def get_likes_count(self, obj):
-        return obj.stars.count()  # تعديل: استخدام related_name='stars'
+        return obj.stars.count()
+
+    def get_creator_name(self, obj):
+        user = obj.created_by
+        return user.get_full_name() or user.username if user else "مستخدم غير معروف"
+
 
 class ThreadSerializer(serializers.ModelSerializer):
     replies = ReplySerializer(many=True, read_only=True)
     replies_count = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
+    creator_name = serializers.SerializerMethodField()  # ✅ الاسم الكامل لمنشئ الثريد
 
     class Meta:
         model = Thread
         fields = [
-            'id', 'chat_room', 'title', 'details', 'created_by', 
-            'file_attachment', 'created_at', 'replies', 
+            'id', 'chat_room', 'title', 'details', 'created_by', 'creator_name',
+            'file_attachment', 'created_at', 'replies',
             'replies_count', 'likes_count', 'is_job_opportunity',
             'job_type', 'location', 'salary'
         ]
@@ -34,7 +44,12 @@ class ThreadSerializer(serializers.ModelSerializer):
         return obj.replies.count()
 
     def get_likes_count(self, obj):
-        return obj.stars.filter(reply__isnull=True).count()  # تعديل: استخدام related_name='stars'
+        return obj.stars.filter(reply__isnull=True).count()
+
+    def get_creator_name(self, obj):
+        user = obj.created_by
+        return user.get_full_name() or user.username if user else "مستخدم غير معروف"
+
 
 class LikeSerializer(serializers.ModelSerializer):
     class Meta:

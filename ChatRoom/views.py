@@ -12,33 +12,51 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        community = get_object_or_404(Community, id=request.data.get('community'))
+        community_id = request.data.get('community')
+        room_type = request.data.get('type', 'discussion_general')  # النوع الافتراضي
+        name = request.data.get('name')  # الاسم يمكن إرساله أو توليده تلقائيًا
+
+        community = get_object_or_404(Community, id=community_id)
         user = request.user
-        
+
+        # تحقق من أن المستخدم عضو في هذا المجتمع
         if not UserCommunity.objects.filter(user=user, community=community).exists():
             return Response({"detail": "أنت لست عضوًا في هذا المجتمع!"}, status=400)
-        
+
+        # تحقق من عدم وجود غرفة من نفس النوع مسبقًا
+        if ChatRoom.objects.filter(community=community, type=room_type).exists():
+            return Response({"detail": "غرفة من هذا النوع موجودة بالفعل لهذا المجتمع."}, status=400)
+
         room = ChatRoom.objects.create(
             community=community,
-            name=request.data.get('name'),
+            type=room_type,
+            name=name,
             created_by=user
         )
-        return Response(ChatRoomSerializer(room).data, status=201)
+        serializer = ChatRoomSerializer(room)
+        return Response(serializer.data, status=201)
 
     def list(self, request, *args, **kwargs):
         community_id = request.query_params.get('community', None)
+        room_type = request.query_params.get('type', None)
+
         if community_id:
             community = get_object_or_404(Community, id=community_id)
-            # التعديل: الوصول إلى chat_room ككائن واحد
-            room = community.chat_room  # لا حاجة لـ .all()
-            if room is None:
-                return Response({"detail": "لا توجد غرفة دردشة لهذا المجتمع"}, status=404)
-            serializer = ChatRoomSerializer(room)  # تسلسل كائن واحد
-            return Response(serializer.data)
-        else:
-            rooms = ChatRoom.objects.all()
+            rooms = community.chat_rooms.all()
+
+            if room_type:
+                rooms = rooms.filter(type=room_type)
+
+            if not rooms.exists():
+                return Response({"detail": "لا توجد غرف مطابقة للمعايير المحددة"}, status=404)
+
             serializer = ChatRoomSerializer(rooms, many=True)
             return Response(serializer.data)
+
+        else:
+            serializer = ChatRoomSerializer(self.queryset, many=True)
+            return Response(serializer.data)
+
 
 class ThreadViewSet(viewsets.ModelViewSet):
     queryset = Thread.objects.all()
@@ -59,6 +77,7 @@ class ThreadViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+
 class ReplyViewSet(viewsets.ModelViewSet):
     queryset = Reply.objects.all()
     serializer_class = ReplySerializer
@@ -66,6 +85,7 @@ class ReplyViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
 
 class LikeViewSet(viewsets.ModelViewSet):
     queryset = Like.objects.all()
