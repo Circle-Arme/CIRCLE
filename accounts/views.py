@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
@@ -11,6 +11,7 @@ from .models import UserProfile
 User = get_user_model()
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def login_api(request):
     email = request.data.get('email')
     password = request.data.get('password')
@@ -31,6 +32,7 @@ def login_api(request):
     })
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def register_api(request):
     email = request.data.get('email')
     password = request.data.get('password')

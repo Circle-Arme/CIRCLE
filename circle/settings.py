@@ -35,6 +35,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2']
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Application definition
 # بتاعت ال core 
@@ -50,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'accounts',
     'fields',
+    'ChatRoom',
 ]
 
 MIDDLEWARE = [
@@ -82,10 +84,14 @@ TEMPLATES = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
+    'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
+
 
 
 WSGI_APPLICATION = 'CIRCLE.wsgi.application'

@@ -9,6 +9,7 @@ from .serializers import FieldSerializer, CommunitySerializer, UserCommunitySeri
 class FieldViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Field.objects.all()
     serializer_class = FieldSerializer
+    permission_classes = [permissions.AllowAny]  # السماح للجميع بقراءة المجالات
 
     @action(detail=True, methods=['get'], url_path='communities')
     def get_communities(self, request, pk=None):
@@ -20,6 +21,7 @@ class FieldViewSet(viewsets.ReadOnlyModelViewSet):
 class CommunityViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Community.objects.all()
     serializer_class = CommunitySerializer
+    permission_classes = [permissions.AllowAny]  # السماح للجميع بقراءة المجتمعات
 
 class UserCommunityViewSet(viewsets.ModelViewSet):
     queryset = UserCommunity.objects.all()
@@ -33,8 +35,7 @@ class UserCommunityViewSet(viewsets.ModelViewSet):
             return Response({"detail": "أنت بالفعل عضو في هذا المجتمع!"}, status=400)
         UserCommunity.objects.create(user=user, community=community)
         return Response({"detail": "تم الانضمام بنجاح!"}, status=201)
-    
-    
+
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def my(self, request):
         user = request.user

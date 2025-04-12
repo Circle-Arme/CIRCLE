@@ -8,11 +8,14 @@ from django.conf.urls.static import static
 # دالة عرض بسيطة للصفحة الرئيسية
 def home(request):
     return HttpResponse("<h1>Welcome to Circle Platform</h1>")
+# urls.py في المشروع الأساسي CIRCLE/urls.py
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("accounts.urls")),  # جعل الحسابات هي الصفحة الرئيسية
-     path('api/', include('fields.urls')),  # إضافة مسار API للمجالات
+    path("", include("accounts.urls")),  # API الحسابات
+    path('api/', include('fields.urls')),     # 🔁 غيرنا المسار هنا
+    path('api/ChatRoom/', include('ChatRoom.urls')),     # 🔁 وغيرنا هنا أيضًا
 ]
+
 
 
 if settings.DEBUG:
