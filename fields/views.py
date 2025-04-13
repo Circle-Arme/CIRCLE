@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
 from .models import Field, Community, UserCommunity
 from .serializers import FieldSerializer, CommunitySerializer, UserCommunitySerializer
 
@@ -43,3 +44,19 @@ class UserCommunityViewSet(viewsets.ModelViewSet):
         communities = [uc.community for uc in user_communities]
         serializer = CommunitySerializer(communities, many=True, context={'request': request})
         return Response(serializer.data)
+    
+
+    @action(detail=False, methods=['delete'], permission_classes=[IsAuthenticated], url_path='leave')
+    def leave(self, request):
+        user = request.user
+        community_id = request.query_params.get('community_id')
+
+        if not community_id:
+            return Response({"detail": "community_id is required."}, status=400)
+
+        try:
+            user_community = UserCommunity.objects.get(user=user, community__id=community_id)
+            user_community.delete()
+            return Response({"detail": "تمت المغادرة بنجاح."}, status=status.HTTP_204_NO_CONTENT)
+        except UserCommunity.DoesNotExist:
+            return Response({"detail": "أنت لست عضوًا في هذا المجتمع."}, status=404)
