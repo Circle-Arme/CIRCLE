@@ -32,7 +32,7 @@ SECRET_KEY = 'django-insecure-7g2z7m!#xc8u--45$foxo8tf!#k5gmz5o7j%_%5mg+v=&$c)v$
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2','192.168.1.5']
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'accounts',
-    'fields',
+    'fields.apps.FieldsConfig',
     'ChatRoom',
 ]
 

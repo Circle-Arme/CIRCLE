@@ -15,7 +15,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         community_id = request.data.get('community')
         room_type = request.data.get('type', 'discussion_general')
         name = request.data.get('name')
-
+        
         community = get_object_or_404(Community, id=community_id)
         user = request.user
 
@@ -47,15 +47,20 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             except UserCommunity.DoesNotExist:
                 return Response({"detail": "أنت لست عضوًا في هذا المجتمع!"}, status=403)
 
-            allowed_types = ['job_opportunities']
-            if user_membership.level == 'beginner':
-                allowed_types.append('discussion_general')
-            elif user_membership.level == 'advanced':
-                allowed_types.append('discussion_advanced')
-            elif user_membership.level == 'both':
-                allowed_types += ['discussion_general', 'discussion_advanced']
+            # إذا كان المستخدم من نوع organization، يُعرض له فقط غرفة فرص العمل
+            if user.user_type == 'organization':
+                rooms = community.chat_rooms.filter(type='job_opportunities')
+            else:
+                allowed_types = ['job_opportunities']
+                if user_membership.level == 'beginner':
+                    allowed_types.append('discussion_general')
+                elif user_membership.level == 'advanced':
+                    allowed_types.append('discussion_advanced')
+                elif user_membership.level == 'both':
+                    allowed_types += ['discussion_general', 'discussion_advanced']
 
-            rooms = community.chat_rooms.filter(type__in=allowed_types)
+                rooms = community.chat_rooms.filter(type__in=allowed_types)
+            
             if room_type:
                 rooms = rooms.filter(type=room_type)
 
@@ -65,9 +70,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             serializer = ChatRoomSerializer(rooms, many=True)
             return Response(serializer.data)
         else:
-            serializer = ChatRoomSerializer(self.queryset, many=True)
-            return Response(serializer.data)
-
+            return Response({"detail": "يجب تحديد community_id."}, status=400)
 
 class ThreadViewSet(viewsets.ModelViewSet):
     queryset = Thread.objects.all()
@@ -105,7 +108,6 @@ class ThreadViewSet(viewsets.ModelViewSet):
 
         return queryset
 
-
 class ReplyViewSet(viewsets.ModelViewSet):
     queryset = Reply.objects.all()
     serializer_class = ReplySerializer
@@ -113,7 +115,6 @@ class ReplyViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-
 
 class LikeViewSet(viewsets.ModelViewSet):
     queryset = Like.objects.all()
