@@ -107,6 +107,9 @@ class ThreadViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(is_job_opportunity=is_job_opportunity)
 
         return queryset
+    def perform_create(self, serializer):
+       # عند إنشاء ثريد جديد، احفظ created_by تلقائياً
+        serializer.save(created_by=self.request.user)
 
 class ReplyViewSet(viewsets.ModelViewSet):
     queryset = Reply.objects.all()

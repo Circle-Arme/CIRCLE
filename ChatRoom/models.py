@@ -1,3 +1,5 @@
+# ChatRoom/models.py
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -9,12 +11,23 @@ class ChatRoom(models.Model):
         ('job_opportunities', 'Job Opportunities'),
     ]
 
-    community = models.ForeignKey("fields.Community", on_delete=models.CASCADE, related_name="chat_rooms")
-    type = models.CharField(max_length=30, choices=ROOM_TYPE_CHOICES, default='discussion_general')
+    community = models.ForeignKey(
+        "fields.Community",
+        on_delete=models.CASCADE,
+        related_name="chat_rooms"
+    )
+    type = models.CharField(
+        max_length=30,
+        choices=ROOM_TYPE_CHOICES,
+        default='discussion_general'
+    )
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_chat_rooms"
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_chat_rooms"
     )
 
     class Meta:
@@ -23,29 +36,47 @@ class ChatRoom(models.Model):
     def __str__(self):
         return f"{self.get_type_display()} room for {self.community.name}"
 
-
 class Thread(models.Model):
-    chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name="threads")
-    title = models.CharField(max_length=255)
-    details = models.TextField()
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-    file_attachment = models.FileField(upload_to='thread_files/', null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    chat_room        = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name="threads")
+    title            = models.CharField(max_length=255)
+    details          = models.TextField()
+    created_by       = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True
+    )
+    file_attachment  = models.FileField(upload_to='thread_files/', null=True, blank=True)
+    created_at       = models.DateTimeField(auto_now_add=True)
     is_job_opportunity = models.BooleanField(default=False)
-    job_type = models.CharField(max_length=100, null=True, blank=True)
-    location = models.CharField(max_length=255, null=True, blank=True)
-    salary = models.CharField(max_length=100, null=True, blank=True)
+    job_type         = models.CharField(max_length=100, null=True, blank=True)
+    location         = models.CharField(max_length=255, null=True, blank=True)
+    salary           = models.CharField(max_length=100, null=True, blank=True)
+    classification   = models.CharField(max_length=100, default='General')
+    tags             = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Thread: {self.title}"
 
-
 class Reply(models.Model):
-    thread = models.ForeignKey(Thread, on_delete=models.CASCADE, related_name="replies")
-    reply_text = models.TextField()
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    parent_reply = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name="nested_replies")
+    thread        = models.ForeignKey(Thread, on_delete=models.CASCADE, related_name="replies")
+    reply_text    = models.TextField()
+    created_by    = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True
+    )
+    created_at    = models.DateTimeField(auto_now_add=True)
+    parent_reply  = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name="nested_replies"
+    )
+    file          = models.FileField(upload_to='reply_files/', null=True, blank=True)
+    is_promoted   = models.BooleanField(default=False)  # ← حقل جديد لتحديد ما إذا كان الرد مروجًا
 
     def __str__(self):
         return f"Reply to {self.thread.title} by {self.created_by}"
@@ -53,14 +84,14 @@ class Reply(models.Model):
     class Meta:
         verbose_name = "Reply"
         verbose_name_plural = "Replies"
-
+        ordering = ['created_at']
 
 User = get_user_model()
 
 class Like(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    thread = models.ForeignKey(Thread, null=True, blank=True, on_delete=models.CASCADE, related_name='stars')
-    reply = models.ForeignKey(Reply, null=True, blank=True, on_delete=models.CASCADE, related_name='stars')
+    user       = models.ForeignKey(User, on_delete=models.CASCADE)
+    thread     = models.ForeignKey(Thread, null=True, blank=True, on_delete=models.CASCADE, related_name='stars')
+    reply      = models.ForeignKey(Reply,  null=True, blank=True, on_delete=models.CASCADE, related_name='stars')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -76,3 +107,6 @@ class Like(models.Model):
     def __str__(self):
         target = self.thread or self.reply
         return f"{self.user} starred {target}"
+
+# لاستيراد السيجنالات عند تحميل الموديل
+from . import signals

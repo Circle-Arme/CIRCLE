@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
+
 from .serializers import UserSerializer, UserProfileSerializer
 from .permissions import IsAdminUser
 from .models import UserProfile
@@ -92,8 +93,21 @@ def delete_organization_user(request, user_id):
         return Response({'error': 'المستخدم غير موجود'}, status=404)
 
 class UserProfileDetailView(generics.RetrieveUpdateAPIView):
+    """
+    GET/PUT على /api/accounts/profile/ لملفّ البروفايل الخاص بالمستخدم الحالي فقط.
+    """
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user.profile
+
+class PublicUserProfileView(generics.RetrieveAPIView):
+    """
+    GET على /api/accounts/profile/<user_id>/ لجلب ملف البروفايل لأي مستخدم (عادي أو مؤسسة).
+    """
+    queryset = UserProfile.objects.select_related('user')
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]  # أو AllowAny إذا أردت
+    lookup_field = 'user__id'
+    lookup_url_kwarg = 'user_id'
