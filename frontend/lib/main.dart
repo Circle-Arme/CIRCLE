@@ -10,12 +10,12 @@ import 'presentation/blocs/language/language_event.dart';
 import 'presentation/blocs/theme/theme_bloc.dart';
 import 'presentation/blocs/theme/theme_event.dart';
 import 'presentation/blocs/auth/auth_bloc.dart';
+import 'presentation/blocs/thread/thread_bloc.dart'; // استيراد ThreadBloc
 import 'core/utils/shared_prefs.dart';
 
 // الصفحات:
 import 'presentation/screens/auth/login_page.dart';
 import 'presentation/screens/home/fields_page.dart';
-//import 'presentation/screens/communities/communities_page.dart';
 import 'presentation/screens/admin/admin_dashboard_page.dart';
 
 void main() async {
@@ -39,6 +39,9 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => AuthBloc(),
+        ),
+        BlocProvider(
+          create: (context) => ThreadBloc(), // إضافة ThreadBloc هنا
         ),
       ],
       child: ScreenUtilInit(

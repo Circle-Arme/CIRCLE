@@ -1,3 +1,6 @@
+// thread_event.dart
+import 'package:file_picker/file_picker.dart';
+
 abstract class ThreadEvent {}
 
 class FetchThreadsEvent extends ThreadEvent {
@@ -13,7 +16,13 @@ class CreateThreadEvent extends ThreadEvent {
   final String content;
   final String classification;
   final List<String> tags;
+  final PlatformFile? file;
   final bool isJobOpportunity;
+
+  // الحقول الجديدة الخاصة بفرص العمل
+  final String? jobType;
+  final String? location;
+  final String? salary;
 
   CreateThreadEvent(
       this.communityId,
@@ -21,6 +30,10 @@ class CreateThreadEvent extends ThreadEvent {
       this.content,
       this.classification,
       this.tags, {
+        this.file,
         this.isJobOpportunity = false,
+        this.jobType,
+        this.location,
+        this.salary,
       });
 }

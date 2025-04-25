@@ -4,7 +4,7 @@ import 'package:frontend/data/models/user_model.dart';
 
 class UserService {
   static Future<UserModel> fetchUser() async {
-    final response = await http.get(Uri.parse("https://your-api.com/api/me"));
+    final response = await http.get(Uri.parse("http://10.0.2.2:8000/api/me"));
 
     if (response.statusCode == 200) {
       final jsonData = jsonDecode(response.body);

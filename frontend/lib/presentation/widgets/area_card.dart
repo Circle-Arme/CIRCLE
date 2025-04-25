@@ -24,7 +24,7 @@ class AreaCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Image.network(
-                area.image,
+                area.image ?? 'https://via.placeholder.com/400x180.png?text=No+Image',
                 height: 180.h,
                 width: double.infinity,
                 fit: BoxFit.cover,

@@ -4,16 +4,20 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:frontend/presentation/blocs/thread/thread_bloc.dart';
 import 'package:frontend/presentation/blocs/thread/thread_event.dart';
+import 'package:frontend/presentation/blocs/thread/thread_state.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../theme/app_colors.dart';
 
 class CreateThreadForm extends StatefulWidget {
   final int communityId;
   final bool isJobOpportunity;
+  final ThreadBloc threadBloc;
 
   const CreateThreadForm({
     Key? key,
     required this.communityId,
     this.isJobOpportunity = false,
+    required this.threadBloc,
   }) : super(key: key);
 
   @override
@@ -27,6 +31,11 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  PlatformFile? _selectedFile;
+
+  String? jobType;
+  String? location;
+  String? salary;
 
   @override
   void dispose() {
@@ -34,6 +43,15 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
     _tagsController.dispose();
     _contentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    if (result != null) {
+      setState(() {
+        _selectedFile = result.files.first;
+      });
+    }
   }
 
   void _submit() {
@@ -44,17 +62,20 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
           .where((tag) => tag.isNotEmpty)
           .toList();
 
-      context.read<ThreadBloc>().add(
+      widget.threadBloc.add(
         CreateThreadEvent(
           widget.communityId,
           _titleController.text.trim(),
           _contentController.text.trim(),
           _classification,
           tags,
+          file: _selectedFile,
           isJobOpportunity: widget.isJobOpportunity,
+          jobType: widget.isJobOpportunity ? jobType : null,
+          location: widget.isJobOpportunity ? location : null,
+          salary: widget.isJobOpportunity ? salary : null,
         ),
       );
-      Navigator.pop(context);
     }
   }
 
@@ -62,8 +83,23 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
-    return BlocProvider(
-      create: (context) => ThreadBloc(),
+    return BlocListener<ThreadBloc, ThreadState>(
+      bloc: widget.threadBloc,
+      listener: (context, state) {
+        if (state is ThreadLoaded) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(loc.threadCreatedSuccessfully)),
+          );
+        } else if (state is ThreadError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${loc.failedToCreateThread}: ${state.message}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.isJobOpportunity ? loc.createJobOpportunity : loc.createThread),
@@ -84,34 +120,35 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
               key: _formKey,
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        loc.topicClassification,
-                        style: TextStyle(fontSize: 16.sp),
-                      ),
-                      SizedBox(width: 10.w),
-                      DropdownButton<String>(
-                        value: _classification,
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _classification = val;
-                            });
-                          }
-                        },
-                        items: _classificationOptions.map((option) {
-                          return DropdownMenuItem(
-                            value: option,
-                            child: Text(
-                              option == 'Q&A' ? loc.filterQna : loc.filterGeneral,
-                              style: TextStyle(fontSize: 16.sp),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
+                  if (!widget.isJobOpportunity)
+                    Row(
+                      children: [
+                        Text(
+                          loc.topicClassification,
+                          style: TextStyle(fontSize: 16.sp),
+                        ),
+                        SizedBox(width: 10.w),
+                        DropdownButton<String>(
+                          value: _classification,
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _classification = val;
+                              });
+                            }
+                          },
+                          items: _classificationOptions.map((option) {
+                            return DropdownMenuItem(
+                              value: option,
+                              child: Text(
+                                option == 'Q&A' ? loc.filterQna : loc.filterGeneral,
+                                style: TextStyle(fontSize: 16.sp),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
                   SizedBox(height: 16.h),
                   TextFormField(
                     controller: _titleController,
@@ -156,20 +193,73 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
                       return null;
                     },
                   ),
-                  SizedBox(height: 24.h),
-                  ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 12.h),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20.r),
+                  SizedBox(height: 16.h),
+                  if (widget.isJobOpportunity) ...[
+                    TextFormField(
+                      decoration: InputDecoration(
+                        labelText: loc.jobType,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
                       ),
-                      backgroundColor: AppColors.primaryColor,
+                      onChanged: (val) {
+                        jobType = val;
+                      },
                     ),
-                    child: Text(
-                      loc.createTopic,
-                      style: TextStyle(fontSize: 16.sp, color: Colors.white),
+                    SizedBox(height: 16.h),
+                    TextFormField(
+                      decoration: InputDecoration(
+                        labelText: loc.location,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        location = val;
+                      },
                     ),
+                    SizedBox(height: 16.h),
+                    TextFormField(
+                      decoration: InputDecoration(
+                        labelText: loc.salary,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        salary = val;
+                      },
+                    ),
+                    SizedBox(height: 16.h),
+                  ],
+                  ElevatedButton.icon(
+                    onPressed: _pickFile,
+                    icon: const Icon(Icons.attach_file),
+                    label: Text(_selectedFile != null ? _selectedFile!.name : loc.attachFile),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade300),
+                  ),
+                  SizedBox(height: 24.h),
+                  BlocBuilder<ThreadBloc, ThreadState>(
+                    bloc: widget.threadBloc,
+                    builder: (context, state) {
+                      if (state is ThreadLoading) {
+                        return const CircularProgressIndicator();
+                      }
+                      return ElevatedButton(
+                        onPressed: _submit,
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(horizontal: 40.w, vertical: 12.h),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                          backgroundColor: AppColors.primaryColor,
+                        ),
+                        child: Text(
+                          loc.createTopic,
+                          style: TextStyle(fontSize: 16.sp, color: Colors.white),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

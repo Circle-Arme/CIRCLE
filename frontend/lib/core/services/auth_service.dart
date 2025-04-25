@@ -21,7 +21,7 @@ class LoggedUser {
 }
 
 class AuthService {
-  static const String _baseUrl = "http://10.0.2.2:8000/api/accounts";
+  static const String _baseUrl = "http://192.168.1.5:8000/api/accounts";
 
   /// تسجيل الدخول
   static Future<LoggedUser> login(String email, String password) async {
@@ -39,6 +39,7 @@ class AuthService {
         final user = data['user'];
         final userType = user['user_type'];
         final userId = user['id'];
+        await SharedPrefs.saveUserId(userId);
 
         if (access == null || refresh == null) {
           throw AuthException('Tokens not found in response');
@@ -46,6 +47,11 @@ class AuthService {
 
         await SharedPrefs.saveAccessToken(access);
         await SharedPrefs.saveRefreshToken(refresh);
+        await SharedPrefs.saveUserType(userType); // تخزين userType
+
+        final testToken = await SharedPrefs.getAccessToken();
+        print("Stored access token: $testToken");
+        print('Access Token: $access');
 
         final communityResponse = await http.get(
           Uri.parse("http://10.0.2.2:8000/api/user-communities/"),
@@ -62,6 +68,8 @@ class AuthService {
         }
 
         final userProfile = UserProfileModel.fromJson(user);
+        await SharedPrefs.saveUserProfile(userProfile); // 🟢 هذا السطر كان مفقودًا
+
 
         return LoggedUser(
           token: access,
@@ -95,7 +103,6 @@ class AuthService {
       );
 
       if (response.statusCode == 201) {
-        // ✅ بعد نجاح التسجيل، نعمل تسجيل دخول مباشرة
         return await login(email, password);
       } else {
         final decoded = utf8.decode(response.bodyBytes);
@@ -107,6 +114,34 @@ class AuthService {
       throw AuthException('فشل التسجيل: ${e.toString()}');
     }
   }
+  static Future<void> changePassword(String oldPassword, String newPassword) async {
+    final token = await SharedPrefs.getAccessToken();
+    if (token == null) throw Exception("التوكن غير متوفر");
+
+    final response = await http.post(
+      Uri.parse("$_baseUrl/change-password/"),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "old_password": oldPassword,
+        "new_password": newPassword,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else {
+      final decoded = utf8.decode(response.bodyBytes);
+      try {
+        final errorJson = jsonDecode(decoded);
+        throw Exception(errorJson['error'] ?? 'فشل تغيير كلمة المرور');
+      } catch (_) {
+        throw Exception("فشل تغيير كلمة المرور: $decoded");
+      }
+    }
+  }
 
   static Future<String?> getToken() async {
     return SharedPrefs.getAccessToken();
@@ -114,6 +149,10 @@ class AuthService {
 
   static Future<String?> getRefreshToken() async {
     return SharedPrefs.getRefreshToken();
+  }
+
+  static Future<String?> getUserType() async {
+    return SharedPrefs.getUserType();
   }
 
   static Future<String> refreshAccessToken() async {
@@ -146,6 +185,11 @@ class AuthService {
       throw AuthException('Error refreshing token: ${e.toString()}');
     }
   }
+  static Future<String?> getCurrentUserId() async {
+    final id = await SharedPrefs.getUserId();
+    return id?.toString();
+  }
+
 
   static Future<void> logout() async {
     await SharedPrefs.clearAuthTokens();

@@ -27,7 +27,11 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> {
           event.content,
           event.classification,
           event.tags,
+          file: event.file, // تمرير الملف
           isJobOpportunity: event.isJobOpportunity,
+          jobType: event.jobType,
+          location: event.location,
+          salary: event.salary,
         );
         final threads = await ThreadService.fetchThreads(
           event.communityId,

@@ -1,13 +1,21 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:frontend/core/services/auth_service.dart';
+import 'package:frontend/core/services/thread_service.dart';
+import 'package:frontend/core/services/UserProfileService.dart';
 import 'package:frontend/data/models/thread_model.dart';
-import '../../theme/app_colors.dart';
-import '../../widgets/custom_drawer.dart';
+import 'package:frontend/presentation/screens/profile/user_profile_page.dart';
+import 'package:frontend/presentation/screens/profile/organization_profile_page.dart';
 
 class ThreadPage extends StatefulWidget {
   final String threadId;
-
   const ThreadPage({Key? key, required this.threadId}) : super(key: key);
 
   @override
@@ -16,49 +24,618 @@ class ThreadPage extends StatefulWidget {
 
 class _ThreadPageState extends State<ThreadPage> {
   late Future<ThreadModel> _threadFuture;
+  ThreadModel? _thread;
 
-  final List<_Message> messages = [
-    _Message(
-      text: "مرحبًا! لدي استفسار حول نقطة معينة في المشروع",
-      senderName: "Abeer",
-      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-      isMe: false,
-      isStarred: false,
-      avatarUrl: "https://i.pravatar.cc/150?img=3",
-    ),
-    _Message(
-      text: "أهلًا بك، تفضلي بالتفصيل أكثر",
-      senderName: "Mayada",
-      timestamp: DateTime.now().subtract(const Duration(minutes: 25)),
-      isMe: true,
-      isStarred: false,
-      avatarUrl: "https://i.pravatar.cc/150?img=5",
-    ),
-  ];
-
+  final List<_Message> _messages = [];
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+
+  bool _isLiked = false;
+  int _likesCount = 0;
+  String? _currentUserId;
+
+  final Map<String, int> _replyLikesCount = {};
+  final Set<String> _likedReplies = {};
+
+  _Message? _replyingTo;
+  PlatformFile? _replyFile;
+
+  bool _showScrollToBottom = false;
 
   @override
   void initState() {
     super.initState();
-    _threadFuture = _fetchThreadById(widget.threadId);
+    _loadThread();
+    _scrollController.addListener(_scrollListener);
   }
 
-  Future<ThreadModel> _fetchThreadById(String threadId) async {
-    await Future.delayed(const Duration(seconds: 1)); // تمثيل تأخير API
+  void _scrollListener() {
+    final offset = _scrollController.offset;
+    setState(() {
+      // نظهر السهم إذا لم نكن في الأسفل
+      _showScrollToBottom =
+          offset < _scrollController.position.maxScrollExtent - 200;
+    });
+  }
 
-    // في المستقبل: استبدل هذا ب ThreadService.getThreadById(threadId)
-    return ThreadModel(
-      id: threadId,
-      title: "استفسار حول المشروع",
-      creatorName: "Abeer",
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      repliesCount: messages.length,
-      classification: "Q&A",
-      content: "هذا محتوى تجريبي للثريد. كيف يمكنني تحسين هذا المشروع؟",
-      tags: ["مشروع", "استفسار"],
-      communityId: "community_1",
-      isJobOpportunity: false,
+  Future<void> _loadThread() async {
+    _currentUserId = await AuthService.getCurrentUserId();
+    _thread = await ThreadService.getThreadById(widget.threadId);
+    _threadFuture = Future.value(_thread);
+    _likesCount = _thread!.likesCount;
+    _isLiked = _thread!.likedByMe;
+
+    _messages
+      ..clear()
+      ..add(_Message.fromThread(_thread!, _currentUserId));
+
+    void walk(ApiReply r, int depth) {
+      _replyLikesCount[r.id] = r.likesCount;
+      if (r.isLiked) _likedReplies.add(r.id);
+      _messages.add(_Message.fromApi(r, depth, _currentUserId));
+      for (final c in r.children) walk(c, depth + 1);
+    }
+
+    for (final r in _thread!.repliesTree) {
+      walk(r, 1);
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _toggleLike() async {
+    await ThreadService.toggleLike(widget.threadId);
+    setState(() {
+      _isLiked = !_isLiked;
+      _likesCount += _isLiked ? 1 : -1;
+    });
+  }
+
+  Future<void> _toggleReplyLike(String replyId) async {
+    try {
+      await ThreadService.toggleReplyLike(replyId);
+      setState(() {
+        if (_likedReplies.contains(replyId)) {
+          _replyLikesCount[replyId] = (_replyLikesCount[replyId] ?? 1) - 1;
+          _likedReplies.remove(replyId);
+        } else {
+          _replyLikesCount[replyId] = (_replyLikesCount[replyId] ?? 0) + 1;
+          _likedReplies.add(replyId);
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('خطأ: ${e.toString()}')));
+    }
+  }
+
+  Future<void> _pickReplyFile() async {
+    final res = await FilePicker.platform.pickFiles();
+    if (res != null) setState(() => _replyFile = res.files.first);
+  }
+
+  Future<void> _sendReply() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty && _replyFile == null) return;
+
+    final parentId = _replyingTo?.id;
+    await ThreadService.createReply(
+      widget.threadId,
+      text,
+      parentReplyId: parentId,
+      file: _replyFile,
+    );
+
+    setState(() {
+      _controller.clear();
+      _replyFile = null;
+      _replyingTo = null;
+    });
+    await _loadThread();
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  Widget _buildMsg(_Message m, AppLocalizations loc) {
+    // الثريد الرئيسي
+    if (m.isThread) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+        child: Card(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r)),
+          elevation: 3,
+          child: Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _avatar(m.senderName),
+                    SizedBox(width: 8.w),
+                    GestureDetector(
+                      onTap: () async {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) =>
+                          const Center(child: CircularProgressIndicator()),
+                        );
+                        try {
+                          final profile = await UserProfileService
+                              .fetchUserProfileById(m.userId);
+                          Navigator.pop(context);
+                          if (profile.userType == 'organization') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => OrganizationProfilePage(
+                                  profile: profile,
+                                  isOwnProfile: m.isMe,
+                                ),
+                              ),
+                            );
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProfilePage(
+                                  profile: profile,
+                                  isOwnProfile: m.isMe,
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('فشل جلب البروفايل: $e')),
+                          );
+                        }
+                      },
+                      child: Text(
+                        m.senderName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13.sp,
+                          color:
+                          m.isMe ? Colors.blue.shade700 : Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12.h),
+                Text(
+                  m.text,
+                  style: TextStyle(fontSize: 16.sp, color: Colors.black87),
+                ),
+                if (m.fileUrl != null)
+                  Padding(
+                    padding: EdgeInsets.only(top: 12.h),
+                    child: _fileWidget(m.fileUrl!, loc),
+                  ),
+                SizedBox(height: 12.h),
+                Row(
+                  children: [
+                    Text(
+                      timeago.format(
+                        m.timestamp,
+                        locale:
+                        Localizations.localeOf(context).languageCode,
+                      ),
+                      style: TextStyle(
+                          fontSize: 12.sp, color: Colors.grey[600]),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: _toggleLike,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _isLiked
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            size: 18.r,
+                            color:
+                            _isLiked ? Colors.red : Colors.grey[600],
+                          ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            '$_likesCount',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // الردود
+    final double baseIndent = 24.w;
+    return Stack(
+      children: [
+        if (m.depth > 0)
+          Positioned(
+            left: 16.w + (m.depth - 1) * baseIndent + 8.w,
+            top: 0,
+            bottom: 0,
+            width: 2.w,
+            child: Container(color: Colors.grey.shade300),
+          ),
+        Padding(
+          padding: EdgeInsets.only(
+            left: 16.w + m.depth * baseIndent,
+            right: 16.w,
+            top: 8.h,
+            bottom: 8.h,
+          ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: m.isMe
+                  ? Colors.blue.shade100
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding:
+            EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _avatar(m.senderName),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) =>
+                            const Center(child: CircularProgressIndicator()),
+                          );
+                          try {
+                            final profile = await UserProfileService
+                                .fetchUserProfileById(m.userId);
+                            Navigator.pop(context);
+                            if (profile.userType == 'organization') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      OrganizationProfilePage(
+                                        profile: profile,
+                                        isOwnProfile: m.isMe,
+                                      ),
+                                ),
+                              );
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProfilePage(
+                                    profile: profile,
+                                    isOwnProfile: m.isMe,
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content:
+                                  Text('فشل جلب البروفايل: $e')),
+                            );
+                          }
+                        },
+                        child: Text(
+                          m.senderName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13.sp,
+                            color: m.isMe
+                                ? Colors.blue.shade700
+                                : Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      timeago.format(
+                        m.timestamp,
+                        locale:
+                        Localizations.localeOf(context).languageCode,
+                      ),
+                      style: TextStyle(
+                          fontSize: 10.sp, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+                if (m.text.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: 8.h),
+                    child: Text(
+                      m.text,
+                      style: TextStyle(
+                          fontSize: 14.sp, color: Colors.black87),
+                    ),
+                  ),
+                if (m.fileUrl != null)
+                  Padding(
+                    padding: EdgeInsets.only(top: 8.h),
+                    child: _fileWidget(m.fileUrl!, loc),
+                  ),
+                Padding(
+                  padding: EdgeInsets.only(top: 8.h),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _toggleReplyLike(m.id),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.arrow_upward,
+                              size: 18.r,
+                              color: _likedReplies.contains(m.id)
+                                  ? Colors.orange.shade700
+                                  : Colors.grey[600],
+                            ),
+                            SizedBox(width: 4.w),
+                            Text(
+                              '${_replyLikesCount[m.id] ?? 0}',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 16.w),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _replyingTo = m);
+                          _focusNode.requestFocus();
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: Text(
+                            loc.reply,
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: Colors.blue.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _avatar(String n) {
+    final color = Colors.primaries[n.hashCode % Colors.primaries.length].shade200;
+    return CircleAvatar(
+      radius: 16.r,
+      backgroundColor: color,
+      child: Text(
+        n.isNotEmpty ? n[0].toUpperCase() : '?',
+        style: TextStyle(
+          fontSize: 12.sp,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _fileWidget(String url, AppLocalizations loc) {
+    final img = ['.png', '.jpg', '.jpeg', '.gif']
+        .any((ext) => url.toLowerCase().endsWith(ext));
+    return InkWell(
+      onTap: () => launchUrl(Uri.parse(url),
+          mode: LaunchMode.externalApplication),
+      child: img
+          ? ClipRRect(
+        borderRadius: BorderRadius.circular(12.r),
+        child: Image.network(
+          url,
+          height: 140.h,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            height: 140.h,
+            color: Colors.grey.shade200,
+            child: const Icon(Icons.broken_image, color: Colors.grey),
+          ),
+        ),
+      )
+          : Container(
+        padding: EdgeInsets.all(8.w),
+        margin: EdgeInsets.only(top: 8.h),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.insert_drive_file,
+                color: Colors.blue.shade700),
+            SizedBox(width: 8.w),
+            Expanded(
+              child: Text(
+                url.split('/').last,
+                style: TextStyle(
+                  fontSize: 13.sp,
+                  color: Colors.blue.shade700,
+                  decoration: TextDecoration.underline,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _input(AppLocalizations loc) {
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_replyingTo != null)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                margin: EdgeInsets.only(bottom: 8.h),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${loc.replyingTo} ${_replyingTo!.senderName}',
+                        style: TextStyle(
+                          fontSize: 13.sp,
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close,
+                          size: 20.r, color: Colors.grey),
+                      onPressed: () => setState(() => _replyingTo = null),
+                    ),
+                  ],
+                ),
+              ),
+            if (_replyFile != null)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                margin: EdgeInsets.only(bottom: 8.h),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.attach_file,
+                        size: 20.r, color: Colors.green.shade700),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        _replyFile!.name,
+                        style: TextStyle(fontSize: 13.sp),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close,
+                          size: 20.r, color: Colors.grey),
+                      onPressed: () => setState(() => _replyFile = null),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.attach_file,
+                      size: 24.r, color: Colors.grey[700]),
+                  onPressed: _pickReplyFile,
+                ),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(20.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      decoration: InputDecoration(
+                        hintText: loc.writeMessage,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 12.h),
+                      ),
+                      style: TextStyle(fontSize: 14.sp),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                FloatingActionButton(
+                  mini: true,
+                  onPressed: _sendReply,
+                  backgroundColor: Colors.blue,
+                  child:
+                  Icon(Icons.send, size: 20.r, color: Colors.white),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -67,367 +644,145 @@ class _ThreadPageState extends State<ThreadPage> {
     final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
-      drawer: const CustomDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0.5,
-        iconTheme: const IconThemeData(color: AppColors.primaryColor),
+        elevation: 2.0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.blue, size: 24.r),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         centerTitle: true,
-        titleTextStyle: const TextStyle(
-          color: AppColors.primaryColor,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-        title: Text(loc.threadDetails),
-      ),
-      body: FutureBuilder<ThreadModel>(
-        future: _threadFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text("حدث خطأ: ${snapshot.error}"));
-          } else if (!snapshot.hasData) {
-            return const Center(child: Text("الثريد غير موجود"));
-          }
-
-          final thread = snapshot.data!;
-          return _buildThreadUI(thread, loc);
-        },
-      ),
-    );
-  }
-
-  Widget _buildThreadUI(ThreadModel thread, AppLocalizations loc) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.grey.shade100, Colors.grey.shade200],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: Column(
-        children: [
-          _buildThreadHeader(thread, loc),
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final msg = messages[index];
-                return _buildMessageBubble(msg, loc);
-              },
+        title: FutureBuilder<ThreadModel>(
+          future: _threadFuture,
+          builder: (_, snap) => Text(
+            snap.hasData ? snap.data!.title : loc.threadDetails,
+            style: TextStyle(
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-          _buildMessageInput(loc),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildThreadHeader(ThreadModel thread, AppLocalizations loc) {
-    final bool isQnA = thread.classification == 'Q&A';
-
-    return Container(
-      margin: EdgeInsets.all(16.w),
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(10.w),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: isQnA
-                        ? [Colors.blueAccent, Colors.lightBlueAccent]
-                        : [Colors.green, Colors.lightGreen],
-                  ),
-                ),
-                child: Icon(
-                  thread.isJobOpportunity
-                      ? Icons.handshake
-                      : isQnA
-                      ? Icons.question_answer
-                      : Icons.chat,
-                  color: Colors.white,
-                  size: 24.sp,
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isLiked ? Icons.favorite : Icons.favorite_border,
+              color: _isLiked ? Colors.red : Colors.grey,
+              size: 24.r,
+            ),
+            onPressed: _toggleLike,
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            child: Center(
+              child: Text(
+                '$_likesCount',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(width: 12.w),
+            ),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          Column(
+            children: [
               Expanded(
-                child: Text(
-                  thread.title,
-                  style: TextStyle(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryColor,
-                  ),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: EdgeInsets.symmetric(vertical: 10.h),
+                  itemCount: _messages.length,
+                  itemBuilder: (_, i) => _buildMsg(_messages[i], loc),
                 ),
               ),
+              _input(loc),
             ],
           ),
-          SizedBox(height: 8.h),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("${loc.by} ${thread.creatorName}",
-                  style: TextStyle(color: Colors.grey[700], fontSize: 14.sp)),
-              Text(
-                _formatDate(thread.createdAt),
-                style: TextStyle(color: Colors.grey[500], fontSize: 12.sp),
-              ),
-            ],
-          ),
-          Divider(height: 24.h, color: Colors.grey[300], thickness: 1),
-          Text(thread.content,
-              style: TextStyle(fontSize: 14.sp, color: Colors.grey[800])),
-          SizedBox(height: 10.h),
-          Wrap(
-            spacing: 6.w,
-            children: thread.tags.map((tag) {
-              return Chip(
-                label: Text(tag),
-                backgroundColor: AppColors.primaryColor.withOpacity(0.1),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-              );
-            }).toList(),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageBubble(_Message msg, AppLocalizations loc) {
-    final isMe = msg.isMe;
-    final alignment = isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final color = isMe ? Colors.lightBlue.shade50 : Colors.white;
-
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 8.h),
-      child: Row(
-        mainAxisAlignment:
-        isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!isMe) _buildAvatar(msg.avatarUrl),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: alignment,
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w),
-                  child: Text(
-                    msg.senderName,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14.sp,
-                      color: isMe
-                          ? AppColors.primaryColor
-                          : Colors.orangeAccent,
-                    ),
-                  ),
-                ),
-                Container(
-                  margin: EdgeInsets.only(top: 4.h, left: 8.w, right: 8.w),
-                  padding: EdgeInsets.all(12.w),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(12.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: alignment,
-                    children: [
-                      Text(msg.text, style: TextStyle(fontSize: 14.sp)),
-                      SizedBox(height: 6.h),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() => msg.isStarred = !msg.isStarred);
-                            },
-                            child: Icon(
-                              msg.isStarred
-                                  ? Icons.star
-                                  : Icons.star_border,
-                              color: msg.isStarred ? Colors.amber : Colors.grey,
-                              size: 20.sp,
-                            ),
-                          ),
-                          SizedBox(width: 8.w),
-                          Text(
-                            _timeAgo(msg.timestamp, context),
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (isMe) Padding(
-            padding: EdgeInsets.only(left: 6.w),
-            child: _buildAvatar(msg.avatarUrl),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAvatar(String? url) {
-    return CircleAvatar(
-      radius: 18.r,
-      backgroundImage:
-      url != null && url.isNotEmpty ? NetworkImage(url) : null,
-      child: (url == null || url.isEmpty)
-          ? const Icon(Icons.person)
-          : null,
-    );
-  }
-
-  Widget _buildMessageInput(AppLocalizations loc) {
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-      child: SafeArea(
-        child: Row(
-          children: [
-            IconButton(
-              icon: Icon(Icons.attach_file, color: AppColors.primaryColor),
-              onPressed: _showAttachOptions,
-            ),
-            Expanded(
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(30.r),
-                ),
-                child: TextField(
-                  controller: _controller,
-                  decoration: InputDecoration(
-                    hintText: loc.writeMessage,
-                    border: InputBorder.none,
-                  ),
-                  onSubmitted: (_) => _sendMessage(),
-                ),
+          if (_showScrollToBottom)
+            Positioned(
+              left: 16.w,
+              top: MediaQuery.of(context).padding.top +
+                  kToolbarHeight +
+                  8.h,
+              child: FloatingActionButton(
+                mini: true,
+                backgroundColor: Colors.blue,
+                onPressed: _scrollToBottom,
+                child: Icon(Icons.arrow_downward,
+                    size: 20.r, color: Colors.white),
               ),
             ),
-            IconButton(
-              icon: Icon(Icons.send, color: AppColors.primaryColor),
-              onPressed: _sendMessage,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAttachOptions() {
-    final loc = AppLocalizations.of(context)!;
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => Wrap(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.image),
-            title: Text(loc.image),
-            onTap: () {
-              Navigator.pop(ctx);
-              // TODO: handle image
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.video_library),
-            title: Text(loc.video),
-            onTap: () {
-              Navigator.pop(ctx);
-              // TODO: handle video
-            },
-          ),
         ],
       ),
     );
   }
 
-  void _sendMessage() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-
-    setState(() {
-      messages.add(
-        _Message(
-          text: text,
-          senderName: "CurrentUser",
-          timestamp: DateTime.now(),
-          isMe: true,
-          isStarred: false,
-          avatarUrl: "https://i.pravatar.cc/150?img=5",
-        ),
-      );
-    });
-
-    _controller.clear();
-    // TODO: send to backend
-  }
-
-  String _formatDate(DateTime dateTime) {
-    return "${dateTime.year}/${dateTime.month}/${dateTime.day}";
-  }
-
-  String _timeAgo(DateTime time, BuildContext context) {
-    final diff = DateTime.now().difference(time);
-    final loc = AppLocalizations.of(context)!;
-
-    if (diff.inDays > 0) return "${diff.inDays} ${loc.day}";
-    if (diff.inHours > 0) return "${diff.inHours} ${loc.hour}";
-    if (diff.inMinutes > 0) return "${diff.inMinutes} ${loc.minute}";
-    return loc.now;
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 }
 
 class _Message {
-  String text;
-  String senderName;
-  DateTime timestamp;
-  bool isMe;
-  bool isStarred;
-  String? avatarUrl;
+  final String id;
+  final String userId;
+  final int depth;
+  final String text;
+  final String senderName;
+  final DateTime timestamp;
+  final bool isMe;
+  final bool isThread;
+  final String? fileUrl;
+  final bool isLiked;
 
   _Message({
+    required this.id,
+    required this.userId,
+    required this.depth,
     required this.text,
     required this.senderName,
     required this.timestamp,
     required this.isMe,
-    required this.isStarred,
-    this.avatarUrl,
+    required this.isThread,
+    this.fileUrl,
+    required this.isLiked,
   });
+
+  factory _Message.fromThread(
+      ThreadModel t, String? currentUserId) =>
+      _Message(
+        id: t.id,
+        userId: t.creatorId,
+        depth: 0,
+        text: t.details,
+        senderName: t.creatorName,
+        timestamp: t.createdAt,
+        isMe: t.creatorId == currentUserId,
+        isThread: true,
+        fileUrl: t.fileAttachment,
+        isLiked: t.likedByMe,
+      );
+
+  factory _Message.fromApi(
+      ApiReply r, int depth, String? currentUserId) =>
+      _Message(
+        id: r.id,
+        userId: r.creatorId,
+        depth: depth,
+        text: r.text,
+        senderName: r.creatorName,
+        timestamp: r.createdAt,
+        isMe: r.creatorId == currentUserId,
+        isThread: false,
+        fileUrl: r.file,
+        isLiked: r.isLiked,
+      );
 }

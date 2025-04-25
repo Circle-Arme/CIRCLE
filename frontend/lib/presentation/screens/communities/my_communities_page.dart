@@ -9,6 +9,8 @@ import 'package:frontend/presentation/screens/communities/communities_page.dart'
 import 'package:frontend/presentation/screens/home/fields_page.dart';
 import 'package:frontend/core/services/CommunityService.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:frontend/presentation/screens/communities/organization_rooms_page.dart';
+import 'package:frontend/presentation/screens/job_opportunities/job_opportunities_page.dart';
 import '../../widgets/custom_drawer.dart';
 
 class MyCommunitiesPage extends StatefulWidget {
@@ -20,12 +22,25 @@ class MyCommunitiesPage extends StatefulWidget {
 
 class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
   List<CommunityModel>? _joinedCommunities;
-
+  String? _userType; // لتخزين نوع المستخدم (organization أو normal)
 
   @override
   void initState() {
     super.initState();
     _loadJoinedCommunities();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await SharedPrefs.getUserProfile();
+      setState(() {
+        _userType = profile?.userType;
+      });
+    } catch (e) {
+      // في حال حدوث خطأ يمكن طباعته أو إظهاره
+      print("Error loading user profile: $e");
+    }
   }
 
   Future<void> _loadJoinedCommunities() async {
@@ -39,7 +54,6 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
       print(e.toString());
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +95,6 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
           return _buildJoinedCommunityCard(context, community);
         },
       ),
-
     );
   }
 
@@ -91,6 +104,8 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
         CircleAvatar(
           radius: 60.r,
           backgroundColor: const Color(0xFFD9E6EC),
+          // يمكنك إضافة صورة إذا كانت متوفرة ضمن community.image
+          backgroundImage: community.image != null ? NetworkImage(community.image!) : null,
         ),
         SizedBox(height: 8.h),
         Text(
@@ -104,13 +119,26 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
         SizedBox(height: 8.h),
         ElevatedButton(
           onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => RoomsSelectionPage(communityId: 0), // TODO: استخدم ID الصحيح إذا متوفر
-              ),
-            );
+            if (_userType == 'organization') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OrganizationRoomsPage(communityId: community.id),
+                ),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RoomsSelectionPage(
+                    communityId: community.id,
+                    userLevel: community.level ?? 'beginner',
+                  ),
+                ),
+              );
+            }
           },
+
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF326B80),
             shape: RoundedRectangleBorder(
@@ -160,7 +188,7 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
                     ),
                   );
                 } else {
-                  // المستخدم ما اختار مجال من قبل → ودّيه لصفحة المجالات
+                  // إذا لم يُحدد المستخدم مجال، فانتقل إلى صفحة المجالات
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -169,9 +197,6 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
                   );
                 }
               },
-
-
-
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF326B80),
                 shape: RoundedRectangleBorder(

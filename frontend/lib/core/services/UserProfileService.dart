@@ -110,4 +110,25 @@ class UserProfileService {
       }
     }
   }
+  static Future<UserProfileModel> fetchUserProfileById(String id) async {
+    final token = await SharedPrefs.getAccessToken();
+    if (token == null) throw Exception("التوكن غير متوفر");
+
+    final res = await http.get(
+      Uri.parse("$_baseUrl/profile/$id/"),            // عدّل المسار ليناسب API
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+    );
+
+    if (res.statusCode == 200) {
+      return UserProfileModel.fromJson(jsonDecode(res.body));
+    } else if (res.statusCode == 401) {
+      await refreshAccessToken();
+      return fetchUserProfileById(id);              // إعادة المحاولة
+    }
+    throw Exception("فشل جلب بروفايل المستخدم: ${res.statusCode}");
+  }
 }
+

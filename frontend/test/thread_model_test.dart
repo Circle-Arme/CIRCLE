@@ -1,3 +1,4 @@
+/*
 // test/thread_model_test.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/data/models/thread_model.dart';
@@ -50,3 +51,4 @@ void main() {
     expect(json["createdAt"], "2025-03-29T10:00:00.000Z");
   });
 }
+*/

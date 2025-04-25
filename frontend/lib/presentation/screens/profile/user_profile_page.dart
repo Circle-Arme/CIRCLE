@@ -1,18 +1,26 @@
+// lib/presentation/screens/profile/profile_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:frontend/data/models/user_profile_model.dart';
+import 'package:frontend/data/models/community_model.dart';
 import 'package:frontend/core/services/UserProfileService.dart';
+import 'package:frontend/core/services/CommunityService.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
 import '../../widgets/custom_drawer.dart';
 import '../communities/communities_page.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+/* --------------------------- الثوابت --------------------------- */
+const _primaryColor = Color(0xFF326B80);
+const _headerBg     = Color(0xFFE9F1F2);
+/* -------------------------------------------------------------- */
 
 class ProfilePage extends StatefulWidget {
   final UserProfileModel profile;
   final bool isOwnProfile;
-
   const ProfilePage({
     Key? key,
     required this.profile,
@@ -25,110 +33,120 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late UserProfileModel _profile;
-  bool _hasChanges = false; // يظهر الزر العائم فقط إذا أجريت تغييرات
+  bool _hasChanges = false;
 
-  // Controllers لاستخدامها داخل الحوار
-  late TextEditingController _nameController;
-  late TextEditingController _workEducationController;
-  late TextEditingController _positionController;
-  late TextEditingController _descriptionController;
-  late TextEditingController _emailController;
+  late final TextEditingController _nameCtl;
+  late final TextEditingController _workCtl;
+  late final TextEditingController _posCtl;
+  late final TextEditingController _descCtl;
+  late final TextEditingController _emailCtl;
+
+  late Future<List<CommunityModel>> _communitiesFuture;
 
   @override
   void initState() {
     super.initState();
-    _profile = widget.profile;
-    _nameController = TextEditingController(text: _profile.name);
-    _workEducationController = TextEditingController(text: _profile.workEducation);
-    _positionController = TextEditingController(text: _profile.position);
-    _descriptionController = TextEditingController(text: _profile.description);
-    _emailController = TextEditingController(text: _profile.email);
+    _profile  = widget.profile;
+    _nameCtl  = TextEditingController(text: _profile.name);
+    _workCtl  = TextEditingController(text: _profile.workEducation);
+    _posCtl   = TextEditingController(text: _profile.position);
+    _descCtl  = TextEditingController(text: _profile.description);
+    _emailCtl = TextEditingController(text: _profile.email);
+
+    // نختار Future لجلب المجتمعات سواء للمستخدم الحالي أو أي مستخدم آخر
+    if (widget.isOwnProfile) {
+      _communitiesFuture = CommunityService.fetchMyCommunities();
+    } else {
+      _communitiesFuture =
+          CommunityService.fetchCommunitiesForUser(_profile.userId);
+    }
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _workEducationController.dispose();
-    _positionController.dispose();
-    _descriptionController.dispose();
-    _emailController.dispose();
+    _nameCtl.dispose();
+    _workCtl.dispose();
+    _posCtl.dispose();
+    _descCtl.dispose();
+    _emailCtl.dispose();
     super.dispose();
   }
 
-  /// حفظ الملف الشخصي في الباكند وتحديث التخزين المحلي
   Future<void> _saveProfile() async {
     final loc = AppLocalizations.of(context)!;
     try {
       await UserProfileService.saveUserProfile(_profile);
       await UserProfileService.saveUserProfileLocally(_profile);
-      setState(() {
-        _hasChanges = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.saveSuccess)),
-      );
+      setState(() => _hasChanges = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(loc.saveSuccess)));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${loc.saveError}: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('${loc.saveError}: $e')));
     }
   }
 
-  /// حوار موحد لتعديل (Name, Work/Education, Position)
-  void _showEditProfileDialog() {
+  void _editDialog(String field, TextEditingController ctl, String label) {
+    final loc = AppLocalizations.of(context)!;
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(AppLocalizations.of(context)!.editProfile),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(labelText: AppLocalizations.of(context)!.name),
-                ),
-                SizedBox(height: 10.h),
-                TextField(
-                  controller: _workEducationController,
-                  decoration: InputDecoration(labelText: AppLocalizations.of(context)!.workEducation),
-                ),
-                SizedBox(height: 10.h),
-                TextField(
-                  controller: _positionController,
-                  decoration: InputDecoration(labelText: AppLocalizations.of(context)!.position),
-                ),
-              ],
-            ),
+      builder: (_) => AlertDialog(
+        title: Text(label, style: const TextStyle(color: _primaryColor)),
+        content: TextField(
+          controller: ctl,
+          maxLines: field == 'description' ? 3 : 1,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: label,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(AppLocalizations.of(context)!.cancel, style: const TextStyle(color: Colors.red)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF326B80)),
-              onPressed: () {
-                // تحقق إذا تغيرت القيم
-                if (_nameController.text != _profile.name ||
-                    _workEducationController.text != _profile.workEducation ||
-                    _positionController.text != _profile.position) {
-                  setState(() {
-                    _profile = _profile.copyWith(
-                      name: _nameController.text,
-                      workEducation: _workEducationController.text,
-                      position: _positionController.text,
-                    );
-                    _hasChanges = true;
-                  });
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(loc.cancel, style: const TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
+            onPressed: () {
+              setState(() {
+                switch (field) {
+                  case 'name':
+                    _profile = _profile.copyWith(name: ctl.text);
+                    break;
+                  case 'workEducation':
+                    _profile = _profile.copyWith(workEducation: ctl.text);
+                    break;
+                  case 'position':
+                    _profile = _profile.copyWith(position: ctl.text);
+                    break;
+                  case 'description':
+                    _profile = _profile.copyWith(description: ctl.text);
+                    break;
+                  case 'email':
+                    _profile = _profile.copyWith(email: ctl.text);
+                    break;
                 }
-                Navigator.pop(context);
-              },
-              child: Text(AppLocalizations.of(context)!.save),
-            ),
-          ],
-        );
-      },
+                _hasChanges = true;
+              });
+              Navigator.pop(context);
+            },
+            child: Text(loc.save),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommunityRow(String name) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 6.h),
+      child: Row(
+        children: [
+          const Icon(Icons.groups, size: 18, color: _primaryColor),
+          SizedBox(width: 8.w),
+          Text(name, style: TextStyle(fontSize: 14.sp)),
+        ],
+      ),
     );
   }
 
@@ -137,23 +155,25 @@ class _ProfilePageState extends State<ProfilePage> {
     final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
-      // تأكد من استخدام Builder لزر القائمة (Drawer)
+      backgroundColor: Colors.white,
       drawer: widget.isOwnProfile ? const CustomDrawer() : null,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFDDE6E6),
+        backgroundColor: _headerBg,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Color(0xFF326B80)),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+        leading: widget.isOwnProfile
+            ? Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu, color: _primaryColor),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
           ),
-        ),
+        )
+            : null,
         centerTitle: true,
         title: Text(
-          loc.profile,
+          loc.profile.toUpperCase(),
           style: TextStyle(
-            color: const Color(0xFF326B80),
-            fontSize: 20.sp,
+            color: _primaryColor,
+            fontSize: 16.sp,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -161,7 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications, color: Color(0xFF326B80)),
+                icon: const Icon(Icons.notifications, color: _primaryColor),
                 onPressed: () {},
               ),
               Positioned(
@@ -169,8 +189,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 top: 8,
                 child: Container(
                   padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                  child: const Text('15', style: TextStyle(color: Colors.white, fontSize: 10)),
+                  decoration: const BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Text('15',
+                      style: TextStyle(color: Colors.white, fontSize: 10)),
                 ),
               ),
             ],
@@ -180,321 +204,214 @@ class _ProfilePageState extends State<ProfilePage> {
       floatingActionButton: widget.isOwnProfile && _hasChanges
           ? FloatingActionButton(
         onPressed: _saveProfile,
-        child: const Icon(Icons.save),
+        backgroundColor: _primaryColor,
+        child: const Icon(Icons.save, color: Colors.white),
       )
           : null,
       body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_profile.isNewUser && widget.isOwnProfile)
-              Padding(
-                padding: EdgeInsets.only(bottom: 12.h),
-                child: Text(
-                  loc.completeYourProfile,
-                  style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.red),
-                ),
-              ),
-            profileCard(),
-            SizedBox(height: 25.h),
-            descriptionCard(),
-            SizedBox(height: 25.h),
-            communitySection(),
-            SizedBox(height: 25.h),
-            contactSection(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// البطاقة الأولى: عرض الاسم، التعليم/العمل والمنصب مع أيقونة تعديل واحدة
-  Widget profileCard() {
-    final cardColor = const Color(0xFFDDE6E6);
-    final loc = AppLocalizations.of(context)!;
-
-    return Card(
-      color: cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1.r)),
-      child: Padding(
-        padding: EdgeInsets.all(25.w),
-        child: Stack(
-          children: [
+            // — Header —
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
                   radius: 30.r,
-                  backgroundColor: const Color(0xFF819FAFFF),
-                  child: Icon(Icons.person, size: 25.r, color: const Color(0xFF326B80)),
+                  backgroundColor: const Color(0xFFE1ECF4),
+                  child:
+                  const Icon(Icons.person, size: 30, color: _primaryColor),
                 ),
-                SizedBox(width: 40.w),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_profile.name,
-                          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.red)),
-                      SizedBox(height: 4.h),
-                      Text(_profile.workEducation,
-                          style: TextStyle(fontSize: 16.sp, color: const Color(0xFF326B80))),
-                      SizedBox(height: 4.h),
-                      Text(_profile.position,
-                          style: TextStyle(fontSize: 16.sp, color: const Color(0xFF326B80))),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (widget.isOwnProfile)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: IconButton(
-                  icon: Icon(Icons.edit, color: Colors.blue, size: 20.r),
-                  onPressed: _showEditProfileDialog,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// بطاقة الوصف تبقى كما هي مع أيقونة تعديل فردية
-  Widget descriptionCard() {
-    final cardColor = const Color(0xFFDDE6E6);
-    final loc = AppLocalizations.of(context)!;
-    return Card(
-      color: cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1.r)),
-      child: Padding(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(loc.description,
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16.sp)),
-            SizedBox(height: 8.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    _profile.description.isEmpty ? loc.writeDescription : _profile.description,
-                    style: TextStyle(fontSize: 16.sp, color: const Color(0xFF326B80)),
-                  ),
-                ),
-                if (widget.isOwnProfile)
-                  IconButton(
-                    icon: Icon(Icons.edit, color: Colors.blue, size: 20.r),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: Text(loc.description,
-                              style: TextStyle(color: const Color(0xFF326B80))),
-                          content: TextField(
-                            controller: _descriptionController,
-                            maxLines: 3,
-                            decoration: InputDecoration(
-                                hintText: loc.writeDescription,
-                                border: const OutlineInputBorder()),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text(loc.cancel, style: const TextStyle(color: Colors.red)),
-                            ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF326B80)),
-                              onPressed: () {
-                                setState(() {
-                                  _profile = _profile.copyWith(
-                                    description: _descriptionController.text,
-                                  );
-                                  _hasChanges = true;
-                                });
-                                Navigator.pop(context);
-                              },
-                              child: Text(loc.save),
-                            ),
-                          ],
+                      _inlineEditable(
+                        text: _profile.name.isEmpty
+                            ? loc.writeName
+                            : _profile.name,
+                        controller: _nameCtl,
+                        field: 'name',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryColor,
                         ),
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// بطاقة المجتمعات تبقى كما هي مع تعديل بسيط
-  Widget communitySection() {
-    final cardColor = const Color(0xFFDDE6E6);
-    final loc = AppLocalizations.of(context)!;
-    return Card(
-      color: cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1.r)),
-      child: Padding(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(loc.communities,
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16.sp)),
-            SizedBox(height: 8.h),
-            _profile.communities.isEmpty
-                ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loc.noCommunitiesJoined,
-                  style: TextStyle(fontSize: 16.sp, color: const Color(0xFF326B80)),
-                ),
-                if (widget.isOwnProfile) ...[
-                  SizedBox(height: 10.h),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final savedAreaId = await SharedPrefs.getLastSelectedAreaId();
-                      if (savedAreaId != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => CommunitiesPage(areaId: savedAreaId),
-                          ),
-                        );
-                      } else {
-                        Navigator.pushNamed(context, '/fields');
-                      }
-                    },
-
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF326B80),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20.r),
                       ),
-                    ),
-                    child: Text(loc.joinCommunity,
-                        style: const TextStyle(color: Colors.white)),
-                  ),
-                ],
-              ],
-            )
-                : Wrap(
-              spacing: 8.w,
-              runSpacing: 8.h,
-              children: _profile.communities
-                  .map((c) => CommunityBox(title: c))
-                  .toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// بطاقة التواصل (البريد الإلكتروني)
-
-  Widget contactSection() {
-    final loc = AppLocalizations.of(context)!;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: Row(
-        children: [
-          // نص: Contact me at + الإيميل
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (_profile.email.isNotEmpty) {
-                  final Uri emailUri = Uri(
-                    scheme: 'mailto',
-                    path: _profile.email,
-                  );
-                  launchUrl(emailUri);
-                }
-              },
-              child: RichText(
-                text: TextSpan(
-                  style: TextStyle(fontSize: 16.sp, color: const Color(0xFF326B80)),
-                  children: [
-                    TextSpan(text: '${loc.contactMeAt} '),
-                    TextSpan(
-                      text: _profile.email.isNotEmpty ? _profile.email : loc.writeEmail,
-                      style: const TextStyle(decoration: TextDecoration.underline),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // أيقونة التعديل
-          if (widget.isOwnProfile)
-            IconButton(
-              icon: Icon(Icons.edit, color: Colors.blue, size: 20.r),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: Text(loc.emailLabel, style: TextStyle(color: const Color(0xFF326B80))),
-                    content: TextField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(border: OutlineInputBorder()),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(loc.cancel, style: const TextStyle(color: Colors.red)),
+                      SizedBox(height: 4.h),
+                      _inlineEditable(
+                        text: _profile.workEducation.isEmpty
+                            ? loc.writeWorkEducation
+                            : _profile.workEducation,
+                        controller: _workCtl,
+                        field: 'workEducation',
+                        style:
+                        TextStyle(fontSize: 13.sp, color: Colors.black87),
                       ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF326B80)),
-                        onPressed: () {
-                          setState(() {
-                            _profile = _profile.copyWith(email: _emailController.text);
-                            _hasChanges = true;
-                          });
-                          Navigator.pop(context);
-                        },
-                        child: Text(loc.save),
-                      ),
+                      if (_profile.position.isNotEmpty ||
+                          widget.isOwnProfile)
+                        _inlineEditable(
+                          text: _profile.position.isEmpty
+                              ? loc.writePosition
+                              : _profile.position,
+                          controller: _posCtl,
+                          field: 'position',
+                          style: TextStyle(
+                              fontSize: 13.sp, color: Colors.black87),
+                        ),
                     ],
                   ),
+                ),
+              ],
+            ),
+
+            // — Description —
+            SizedBox(height: 24.h),
+            _divider(),
+            SizedBox(height: 16.h),
+            _sectionTitle(loc.description),
+            SizedBox(height: 6.h),
+            _inlineEditable(
+              text: widget.isOwnProfile
+                  ? (_profile.description.isEmpty
+                  ? loc.writeDescription
+                  : _profile.description)
+                  : (_profile.description.isEmpty ? '_' : _profile.description),
+              controller: _descCtl,
+              field: 'description',
+              multiline: true,
+              style: TextStyle(fontSize: 14.sp, color: Colors.black87),
+            ),
+
+            // — Communities — always visible, no toggle
+            SizedBox(height: 24.h),
+            _divider(),
+            SizedBox(height: 16.h),
+            _sectionTitle(loc.communities),
+            SizedBox(height: 8.h),
+            FutureBuilder<List<CommunityModel>>(
+              future: _communitiesFuture,
+              builder: (ctx, snap) {
+                if (snap.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final list = snap.data ?? [];
+                if (list.isEmpty) {
+                  return Text(
+                    loc.noCommunitiesJoined,
+                    style:
+                    TextStyle(fontSize: 14.sp, color: Colors.grey[600]),
+                  );
+                }
+                return Column(
+                  children:
+                  list.map((c) => _buildCommunityRow(c.name)).toList(),
                 );
               },
             ),
-        ],
+            if (widget.isOwnProfile) ...[
+              SizedBox(height: 12.h),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final areaId = await SharedPrefs.getLastSelectedAreaId();
+                  if (areaId != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CommunitiesPage(areaId: areaId),
+                      ),
+                    );
+                  } else {
+                    Navigator.pushNamed(context, '/fields');
+                  }
+                },
+                icon: const Icon(Icons.add, color: _primaryColor),
+                label: Text(
+                  loc.joinCommunity,
+                  style: const TextStyle(color: _primaryColor),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: _primaryColor),
+                ),
+              ),
+            ],
+
+            // — Contact —
+            SizedBox(height: 24.h),
+            _divider(),
+            SizedBox(height: 16.h),
+            Row(
+              children: [
+                Text("${loc.contactMeAt} ",
+                    style: TextStyle(fontSize: 14.sp)),
+                GestureDetector(
+                  onTap: _profile.email.isNotEmpty
+                      ? () => launchUrl(
+                      Uri(scheme: 'mailto', path: _profile.email.trim()))
+                      : null,
+                  child: _inlineEditable(
+                    text: _profile.email.isEmpty
+                        ? loc.writeEmail
+                        : _profile.email,
+                    controller: _emailCtl,
+                    field: 'email',
+                    isEmail: true,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-}
+  Widget _divider() =>
+      const Divider(thickness: .8, color: _primaryColor);
 
-/// بطاقة المجتمع كما هي
-class CommunityBox extends StatelessWidget {
-  final String title;
+  Widget _sectionTitle(String text) => Text(
+    text,
+    style: TextStyle(
+      fontSize: 15.sp,
+      fontWeight: FontWeight.bold,
+      color: _primaryColor,
+    ),
+  );
 
-  const CommunityBox({Key? key, required this.title}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 80.w,
-      height: 80.h,
-      decoration: BoxDecoration(
-        color: Colors.blueGrey,
-        borderRadius: BorderRadius.circular(10.r),
-      ),
-      child: Center(
-        child: Text(
-          title,
-          style: TextStyle(color: Colors.white, fontSize: 14.sp),
-          textAlign: TextAlign.center,
-        ),
-      ),
+  Widget _inlineEditable({
+    required String text,
+    required TextEditingController controller,
+    required String field,
+    required TextStyle style,
+    bool multiline = false,
+    bool isEmail = false,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment:
+      multiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        Flexible(child: Text(text, style: style)),
+        if (widget.isOwnProfile)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.edit, size: 18, color: _primaryColor),
+            onPressed: () => _editDialog(
+              field,
+              controller,
+              isEmail
+                  ? AppLocalizations.of(context)!.emailLabel
+                  : AppLocalizations.of(context)!.edit,
+            ),
+          ),
+      ],
     );
   }
 }

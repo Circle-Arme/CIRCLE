@@ -12,6 +12,7 @@ import 'package:frontend/data/models/area_model.dart';
 import 'package:frontend/core/services/CommunityService.dart';
 import '../home/fields_page.dart';
 import '../communities/my_communities_page.dart';
+import '../profile/organization_profile_page.dart';
 import '../admin/admin_dashboard_page.dart';
 import 'regstraion_page.dart';
 
@@ -55,39 +56,41 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: backgroundWhite,
       body: BlocListener<AuthBloc, AuthState>(
-          listener: (context, state) async {
-            if (state is AuthAuthenticated) {
-              if (state.userType == 'admin') {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminDashboardPage(),
-                  ),
-                );
-              } else if (state.isNewUser) {
+        listener: (context, state) async {
+          if (state is AuthAuthenticated) {
+            if (state.userType == 'admin') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminDashboardPage(),
+                ),
+              );
+            } else if (state.userType == 'organization') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OrganizationProfilePage(profile: state.userProfile),
+                ),
+              );
+            } else if (state.isNewUser) {
+              Navigator.pushReplacementNamed(context, '/fields');
+            } else {
+              final joinedCommunities = await CommunityService.fetchMyCommunities();
+              if (joinedCommunities.isEmpty) {
                 Navigator.pushReplacementNamed(context, '/fields');
               } else {
-                // ✅ تعديل هنا: جلب المجتمعات التي انضم لها المستخدم
-                final joinedCommunities = await CommunityService.fetchMyCommunities();
-
-                if (joinedCommunities.isEmpty) {
-                  // ❌ المستخدم ما انضم لأي مجتمع بعد → نوديه يختار مجال
-                  Navigator.pushReplacementNamed(context, '/fields');
-                } else {
-                  // ✅ المستخدم منضم فعلاً → نوديه إلى مجتمعاته
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MyCommunitiesPage()),
-                  );
-                }
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyCommunitiesPage()),
+                );
               }
-
-            } else if (state is AuthError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.message)),
-              );
             }
-          },
+          } else if (state is AuthError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
+            );
+          }
+        },
 
           child: OrientationBuilder(
           builder: (context, orientation) {

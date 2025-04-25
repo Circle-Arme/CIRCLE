@@ -1,126 +1,215 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:frontend/data/models/thread_model.dart';
+import 'package:frontend/core/services/thread_service.dart';
+import 'package:frontend/core/services/auth_service.dart';
+import 'package:frontend/presentation/blocs/thread/thread_bloc.dart';
+import 'package:frontend/presentation/blocs/thread/thread_event.dart';
+import 'package:frontend/presentation/blocs/thread/thread_state.dart';
+import 'package:frontend/presentation/theme/app_colors.dart';
+import 'package:frontend/presentation/screens/thread/create_thread_form.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-//import '../../../core/services/thread_service.dart';
 import '../../widgets/custom_drawer.dart';
-import '../../blocs/thread/thread_bloc.dart';
-import '../../blocs/thread/thread_event.dart';
-import '../../blocs/thread/thread_state.dart';
-import '../thread/create_thread_form.dart';
-import '../thread/thread_page.dart';
+import '../../widgets/search_bar_widget.dart';
+import '../../widgets/threads_list_widget.dart';
+import 'package:frontend/presentation/screens/discussion/discussion_room_page.dart';
 
-class JobOpportunitiesPage extends StatelessWidget {
+class JobOpportunitiesPage extends StatefulWidget {
   final int communityId;
 
   const JobOpportunitiesPage({Key? key, required this.communityId}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => ThreadBloc()
-        ..add(FetchThreadsEvent(communityId, isJobOpportunity: false)),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF5F9F9),
-        drawer: const CustomDrawer(),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 1,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: const Color(0xFF326B80), size: 24.sp),
-            onPressed: () => Navigator.pop(context),
-          ),
-          centerTitle: true,
-          title: Text(
-            AppLocalizations.of(context)!.discussionRoom,
-            style: TextStyle(
-              color: const Color(0xFF326B80),
-              fontWeight: FontWeight.bold,
-              fontSize: 18.sp,
-            ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8.w),
-              child: Icon(Icons.notifications_none, color: const Color(0xFF326B80), size: 24.sp),
-            ),
-          ],
+  State<JobOpportunitiesPage> createState() => _JobOpportunitiesPageState();
+}
+
+class _JobOpportunitiesPageState extends State<JobOpportunitiesPage> {
+  String _selectedFilterOption = 'All';
+  String _searchQuery = '';
+  late Future<List<ThreadModel>> _threadsFuture;
+  late Future<String?> _userTypeFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _threadsFuture = ThreadService.fetchThreads(widget.communityId, isJobOpportunity: true);
+    _userTypeFuture = AuthService.getUserType();
+    context.read<ThreadBloc>().add(FetchThreadsEvent(
+      widget.communityId,
+      isJobOpportunity: true,
+    ));
+  }
+
+  Future<void> _refreshThreads() async {
+    context.read<ThreadBloc>().add(FetchThreadsEvent(
+      widget.communityId,
+      isJobOpportunity: true,
+    ));
+  }
+
+  List<ThreadModel> _filterThreads(List<ThreadModel> threads) {
+    var filtered = List<ThreadModel>.from(threads);
+
+    // فلترة حسب التصنيف Q&A أو General
+    if (_selectedFilterOption == 'Q&A' || _selectedFilterOption == 'General') {
+      filtered = filtered.where((t) => t.classification == _selectedFilterOption).toList();
+    }
+    // الأكثر تفاعلاً
+    else if (_selectedFilterOption == 'mostPopular') {
+      filtered.sort((a, b) => b.repliesCount.compareTo(a.repliesCount));
+    }
+    // البحث بالكلمات
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered
+          .where((t) => t.title.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
+    }
+    // الافتراضي: ديفولت ترتيب زمني (لا يحتاج كود إضافي)
+    return filtered;
+  }
+
+  Future<void> _createNewThread() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateThreadForm(
+          communityId: widget.communityId,
+          isJobOpportunity: true,
+          threadBloc: context.read<ThreadBloc>(),
         ),
-        body: BlocBuilder<ThreadBloc, ThreadState>(
-          builder: (context, state) {
-            if (state is ThreadLoading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is ThreadError) {
-              return Center(
-                child: Text(
-                  AppLocalizations.of(context)!.errorOccurred(state.message),
-                ),
-              );
-            } else if (state is ThreadLoaded) {
-              final threads = state.threads;
-              if (threads.isEmpty) {
-                return Center(child: Text(AppLocalizations.of(context)!.noThreads));
+      ),
+    );
+    _refreshThreads();
+  }
+
+  /// شريط الشيبس الأفقي
+  Widget _buildFilterChips() {
+    final loc = AppLocalizations.of(context)!;
+    final options = [
+      {'label': loc.filterAll,     'value': 'All'},
+      {'label': loc.filterQna,     'value': 'Q&A'},
+      {'label': loc.filterGeneral, 'value': 'General'},
+      {'label': loc.mostPopular,   'value': 'mostPopular'},
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: options.map((option) {
+          final value = option['value']!;
+          return Padding(
+            padding: EdgeInsets.only(right: 8.w),
+            child: ChoiceChip(
+              label: Text(option['label']!, style: TextStyle(fontSize: 14.sp)),
+              selected: _selectedFilterOption == value,
+              onSelected: (_) {
+                setState(() => _selectedFilterOption = value);
+                _refreshThreads();
+              },
+              selectedColor: AppColors.primaryColor.withOpacity(0.25),
+              backgroundColor: Colors.grey[300],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20.r),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      drawer: const CustomDrawer(),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.primaryColor),
+        title: Text(
+          loc.jobOpportunities,
+          style: const TextStyle(
+            color: AppColors.primaryColor,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          FutureBuilder<String?>(
+            future: _userTypeFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox.shrink();
               }
-              return Padding(
-                padding: EdgeInsets.all(16.w),
-                child: ListView.separated(
-                  itemCount: threads.length,
-                  separatorBuilder: (_, __) => SizedBox(height: 16.h),
-                  itemBuilder: (context, index) {
-                    final thread = threads[index];
-                    return Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                        title: Text(
-                          thread.title,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF326B80),
-                            fontSize: 16.sp,
-                          ),
-                        ),
-                        subtitle: Text(
-                          thread.content,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 14.sp),
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ThreadPage(threadId: thread.id),
-                            ),
-                          );
-                        },
-                      ),
-                    );
+              if (snapshot.hasData && snapshot.data == 'regular') {
+                return IconButton(
+                  icon: const Icon(Icons.forum, color: AppColors.primaryColor),
+                  tooltip: loc.discussionRoom,
+                  onPressed: () => Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DiscussionRoomPage(communityId: widget.communityId),
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          )
+        ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(60.h),
+          child: SearchBarWidget(
+            hintText: loc.searchTopic,
+            onChanged: (value) => setState(() => _searchQuery = value),
+          ),
+        ),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.grey.shade100, Colors.grey.shade200],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildFilterChips(),      // ← شريط الخيارات الأفقي
+              SizedBox(height: 16.h),
+              Expanded(
+                child: BlocBuilder<ThreadBloc, ThreadState>(
+                  builder: (context, state) {
+                    if (state is ThreadLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (state is ThreadError) {
+                      return Center(child: Text("${loc.error}: ${state.message}"));
+                    } else if (state is ThreadLoaded) {
+                      return ThreadsListWidget(
+                        threadsFuture: Future.value(state.threads),
+                        filterThreads: _filterThreads,
+                        onRefresh: _refreshThreads,
+                      );
+                    }
+                    return const SizedBox.shrink();
                   },
                 ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: const Color(0xFF326B80),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CreateThreadForm(
-                  communityId: communityId,
-                  isJobOpportunity: false,
-                ),
               ),
-            );
-          },
-          child: const Icon(Icons.add, color: Colors.white),
+            ],
+          ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createNewThread,
+        backgroundColor: AppColors.primaryColor,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: Text(loc.newTopic, style: const TextStyle(color: Colors.white)),
       ),
     );
   }

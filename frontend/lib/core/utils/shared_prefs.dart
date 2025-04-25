@@ -75,6 +75,7 @@ class SharedPrefs {
     final prefs = await SharedPrefs.prefs();
     await prefs.remove('access_token');
     await prefs.remove('refresh_token');
+    await prefs.remove('user_type'); // إزالة userType عند تسجيل الخروج
   }
 
   // ---------------------------------------------
@@ -100,7 +101,22 @@ class SharedPrefs {
     await prefs.remove('user_profile');
   }
 
+  // ---------------------------------------------
+  // 🔒 نوع المستخدم (userType)
+  // ---------------------------------------------
+  static Future<void> saveUserType(String userType) async {
+    final prefs = await SharedPrefs.prefs();
+    await prefs.setString('user_type', userType);
+  }
+
+  static Future<String?> getUserType() async {
+    final prefs = await SharedPrefs.prefs();
+    return prefs.getString('user_type');
+  }
+
+  // ---------------------------------------------
   // ✅ لحفظ هل ظهرت الرسالة أم لا
+  // ---------------------------------------------
   static Future<void> setProfilePromptSeen(bool value) async {
     final prefs = await SharedPrefs.prefs();
     await prefs.setBool('hasSeenProfilePrompt', value);
@@ -111,7 +127,9 @@ class SharedPrefs {
     return prefs.getBool('hasSeenProfilePrompt') ?? false;
   }
 
-  //حفظ المجال المختار
+  // ---------------------------------------------
+  // 🗺️ حفظ المجال المختار
+  // ---------------------------------------------
   static Future<void> saveLastSelectedAreaId(String areaId) async {
     final prefs = await SharedPrefs.prefs();
     await prefs.setString('last_area_id', areaId);
@@ -122,4 +140,31 @@ class SharedPrefs {
     return prefs.getString('last_area_id');
   }
 
+  static Future<void> saveUserId(int userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('user_id', userId);
+  }
+
+  static Future<int?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('user_id');
+  }
+
+  // ---------------------------------------------
+  // 🔖 حفظ مستوى المستخدم داخل مجتمع معيّن
+  // ---------------------------------------------
+  static Future<void> saveCommunityLevel(int communityId, String level) async {
+    final prefs = await SharedPrefs.prefs();
+    await prefs.setString('community_level_$communityId', level);
+  }
+
+  static Future<String?> getCommunityLevel(int communityId) async {
+    final prefs = await SharedPrefs.prefs();
+    return prefs.getString('community_level_$communityId');
+  }
+
+  static Future<void> removeCommunityLevel(int communityId) async {
+    final prefs = await SharedPrefs.prefs();
+    await prefs.remove('community_level_$communityId');
+  }
 }

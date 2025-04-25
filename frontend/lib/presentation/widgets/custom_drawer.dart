@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // استيراد flutter_bloc
 import 'package:frontend/data/models/user_model.dart';
 import 'package:frontend/data/models/user_profile_model.dart';
 import 'package:frontend/core/services/auth_service.dart';
@@ -7,13 +8,15 @@ import 'package:frontend/core/utils/shared_prefs.dart';
 import '../theme/app_colors.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:frontend/presentation/screens/profile/user_profile_page.dart';
-import 'package:frontend/presentation/screens/communities/communities_page.dart';
-import 'package:frontend/presentation/screens/communities/my_communities_page.dart'; // ✅ مضافة
+import 'package:frontend/presentation/screens/profile/organization_profile_page.dart';
+import 'package:frontend/presentation/screens/communities/my_communities_page.dart';
+import 'package:frontend/presentation/screens/admin/admin_dashboard_page.dart';
+import 'package:frontend/presentation/screens/home/fields_page.dart';
+import 'package:frontend/presentation/blocs/language/language_bloc.dart'; // استيراد LanguageBloc
+import 'package:frontend/presentation/blocs/language/language_event.dart'; // استيراد LanguageEvent
 
 class CustomDrawer extends StatelessWidget {
-  final UserModel? user;
-
-  const CustomDrawer({Key? key, this.user}) : super(key: key);
+  const CustomDrawer({Key? key}) : super(key: key); // إزالة معامل user
 
   @override
   Widget build(BuildContext context) {
@@ -37,123 +40,189 @@ class CustomDrawer extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Container(
-      color: Colors.grey[200],
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-      child: Column(
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              icon: const Icon(Icons.close),
-              color: AppColors.primaryColor,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+    return FutureBuilder<UserProfileModel?>(
+      future: SharedPrefs.getUserProfile(), // جلب الملف التعريفي من SharedPrefs
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        return Container(
+          color: Colors.grey[200],
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: const Icon(Icons.close),
+                  color: AppColors.primaryColor,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              SizedBox(height: 10.h),
+              CircleAvatar(
+                radius: 40,
+                backgroundImage: const AssetImage('assets/images/user.jpg'), // إزالة الاعتماد على user
+                backgroundColor: Colors.transparent,
+              ),
+              SizedBox(height: 10.h),
+              Text(
+                profile?.name ?? AppLocalizations.of(context)!.guest,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppColors.primaryColor,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 10.h),
-          CircleAvatar(
-            radius: 40,
-            backgroundImage: user?.profileImageUrl != null
-                ? NetworkImage(user!.profileImageUrl)
-                : const AssetImage('assets/images/user.jpg') as ImageProvider,
-            backgroundColor: Colors.transparent,
-          ),
-          SizedBox(height: 10.h),
-          Text(
-            user?.name ?? AppLocalizations.of(context)!.guest,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildMenuItems(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
-    return Expanded(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(vertical: 30.h),
-        child: Column(
-          children: [
-            drawerItem(
-              icon: Icons.person,
-              title: loc.profile,
-              context: context,
-              onTap: () async {
-                final profile = await SharedPrefs.getUserProfile();
-                if (profile != null) {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProfilePage(profile: profile),
-                    ),
-                  );
-                }
-              },
-            ),
-            drawerItem(
-              icon: Icons.group,
-              title: loc.myCommunities, // تأكد أنها في .arb
-              context: context,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MyCommunitiesPage(),
-                  ),
-                );
-              },
-            ),
-            drawerItem(
-              icon: Icons.people,
-              title: loc.communities,
-              context: context,
-              onTap: () async {
-                final savedAreaId = await SharedPrefs.getLastSelectedAreaId();
-                if (savedAreaId != null) {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CommunitiesPage(areaId: savedAreaId),
-                    ),
-                  );
-                } else {
-                  // المستخدم لم يختَر مجال بعد – يمكنك توجيهه لصفحة اختيار المجالات
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/fields');
-                }
-              },
+    return FutureBuilder<UserProfileModel?>(
+      future: SharedPrefs.getUserProfile(),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final userType = profile?.userType ?? 'normal'; // استخدام userType من UserProfileModel
 
+        return Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(vertical: 30.h),
+            child: Column(
+              children: [
+                drawerItem(
+                  icon: Icons.person,
+                  title: loc.profile,
+                  context: context,
+                  onTap: () {
+                    if (profile != null) {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => userType == 'organization'
+                              ? OrganizationProfilePage(profile: profile)
+                              : ProfilePage(profile: profile),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                drawerItem(
+                  icon: Icons.group,
+                  title: loc.myCommunities,
+                  context: context,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MyCommunitiesPage(),
+                      ),
+                    );
+                  },
+                ),
+                drawerItem(
+                  icon: Icons.home,
+                  title: loc.home,
+                  context: context,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FieldsPage(),
+                      ),
+                    );
+                  },
+                ),
+                if (userType == 'admin') // خيار إداري
+                  drawerItem(
+                    icon: Icons.admin_panel_settings,
+                    title: loc.adminDashboard,
+                    context: context,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminDashboardPage(),
+                        ),
+                      );
+                    },
+                  ),
+                drawerItem(
+                  icon: Icons.language,
+                  title: loc.language,
+                  context: context,
+                  onTap: () {
+                    _showLanguageDialog(context);
+                  },
+                ),
+              ],
             ),
-            drawerItem(
-              icon: Icons.notifications,
-              title: loc.notifications,
-              context: context,
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Add notifications screen
-              },
-            ),
-            drawerItem(
-              icon: Icons.settings,
-              title: loc.settings,
-              context: context,
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Add settings screen
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
+    );
+  }
+
+// باقي الكود (_showLanguageDialog, _buildLogoutButton, drawerItem) يبقى كما هو
+}
+
+  void _showLanguageDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+          content: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  // تغيير اللغة إلى الإنجليزية باستخدام LanguageBloc
+                  context.read<LanguageBloc>().add(ChangeLanguageEvent(const Locale('en')));
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                ),
+                child: const Text(
+                  'English',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              SizedBox(width: 20.w),
+              ElevatedButton(
+                onPressed: () {
+                  // تغيير اللغة إلى العربية باستخدام LanguageBloc
+                  context.read<LanguageBloc>().add(ChangeLanguageEvent(const Locale('ar')));
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                ),
+                child: const Text(
+                  'Arabic',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -213,4 +282,3 @@ class CustomDrawer extends StatelessWidget {
       onTap: onTap,
     );
   }
-}
