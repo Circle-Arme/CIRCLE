@@ -5,12 +5,16 @@ from .views import (
     login_api,
     register_api,
     protected_view,
-    list_organization_users,
-    create_organization_user,
-    delete_organization_user,
     UserProfileDetailView,
     PublicUserProfileView,          # ← استوردنا العرض الجديد
 )
+from .views_admin import (
+    list_organization_users,
+    create_organization_user,
+    update_organization_user,
+    delete_organization_user,
+)
+from accounts.views_extra import upload_avatar
 
 urlpatterns = [
     path('api/accounts/login/', login_api, name='login_api'),
@@ -25,8 +29,11 @@ urlpatterns = [
       PublicUserProfileView.as_view(),
       name='public-user-profile'
     ),
+    path('api/accounts/profile/upload-avatar/', upload_avatar,
+         name='upload-avatar'),
     # إدارة مستخدمي المؤسسات (Admin only)
     path('api/accounts/admin/org-users/', list_organization_users, name='list_org_users'),
     path('api/accounts/admin/create-org-user/', create_organization_user, name='create_org_user'),
+    path('api/accounts/admin/update-org-user/<int:user_id>/', update_organization_user, name='update_org_user'),
     path('api/accounts/admin/delete-org-user/<int:user_id>/', delete_organization_user, name='delete_org_user'),
 ]

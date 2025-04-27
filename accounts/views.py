@@ -64,34 +64,6 @@ def register_api(request):
 def protected_view(request):
     return Response({'message': f'مرحبًا {request.user.email}, هذه صفحة محمية!'})
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def list_organization_users(request):
-    users = User.objects.filter(user_type='organization')
-    serializer = UserSerializer(users, many=True)
-    return Response(serializer.data)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def create_organization_user(request):
-    data = request.data.copy()
-    data['user_type'] = 'organization'
-    serializer = UserSerializer(data=data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=201)
-    return Response(serializer.errors, status=400)
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def delete_organization_user(request, user_id):
-    try:
-        user = User.objects.get(id=user_id, user_type='organization')
-        user.delete()
-        return Response({'message': 'تم حذف المستخدم بنجاح!'})
-    except User.DoesNotExist:
-        return Response({'error': 'المستخدم غير موجود'}, status=404)
-
 class UserProfileDetailView(generics.RetrieveUpdateAPIView):
     """
     GET/PUT على /api/accounts/profile/ لملفّ البروفايل الخاص بالمستخدم الحالي فقط.

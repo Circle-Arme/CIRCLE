@@ -46,6 +46,8 @@ class UserProfile(models.Model):
     description = models.TextField(blank=True)
     email = models.EmailField(blank=True)
     communities = models.ManyToManyField('fields.Community', blank=True)
+    website     = models.URLField(blank=True, null=True)
+    avatar      = models.ImageField(upload_to='avatars/', blank=True, null=True)
 
     def __str__(self):
         return self.name or self.user.email
