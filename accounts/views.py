@@ -1,16 +1,25 @@
+# accounts/views.py
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    parser_classes,      # ⬅️ لاستعمال MultiPartParser / FormParser
+)
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, permissions
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+
 from django.contrib.auth import get_user_model
 
 from .serializers import UserSerializer, UserProfileSerializer
-from .permissions import IsAdminUser
 from .models import UserProfile
 
 User = get_user_model()
 
+# ------------------------------------------------------------------
+# 1) المصادقة والتسجيل
+# ------------------------------------------------------------------
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_api(request):
@@ -29,8 +38,9 @@ def login_api(request):
     return Response({
         'refresh': str(refresh),
         'access': str(refresh.access_token),
-        'user': UserSerializer(user).data
+        'user': UserSerializer(user).data,
     })
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -54,32 +64,68 @@ def register_api(request):
         password=password,
         first_name=first_name,
         last_name=last_name,
-        user_type='normal'
+        user_type='normal',
     )
-
     return Response({'message': 'تم إنشاء الحساب بنجاح!'}, status=201)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def protected_view(request):
     return Response({'message': f'مرحبًا {request.user.email}, هذه صفحة محمية!'})
 
+# ------------------------------------------------------------------
+# 2) بروفايل المستخدم الحالي
+# ------------------------------------------------------------------
 class UserProfileDetailView(generics.RetrieveUpdateAPIView):
     """
-    GET/PUT على /api/accounts/profile/ لملفّ البروفايل الخاص بالمستخدم الحالي فقط.
+    GET /api/accounts/profile/   → جلب بيانات البروفايل
+    PATCH /api/accounts/profile/ → تحديث جزئي (نصوص + صورة معاً)
     """
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # يدعم JSON + ملفات
 
     def get_object(self):
         return self.request.user.profile
 
+    # نجعل كل التحديثات جزئية حتى مع PATCH/PUT
+    def get_serializer(self, *args, **kwargs):
+        kwargs['partial'] = True
+        return super().get_serializer(*args, **kwargs)
+
+# ------------------------------------------------------------------
+# 3) بروفايل عام لأي مستخدم بالـ ID
+# ------------------------------------------------------------------
 class PublicUserProfileView(generics.RetrieveAPIView):
     """
-    GET على /api/accounts/profile/<user_id>/ لجلب ملف البروفايل لأي مستخدم (عادي أو مؤسسة).
+    GET /api/accounts/profile/<user_id>/ لجلب ملف البروفايل لأي مستخدم.
     """
     queryset = UserProfile.objects.select_related('user')
     serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]  # أو AllowAny إذا أردت
+    permission_classes = [permissions.IsAuthenticated]   # بدّل إلى AllowAny إن أردت
     lookup_field = 'user__id'
     lookup_url_kwarg = 'user_id'
+
+# ------------------------------------------------------------------
+# 4) رفع الصورة فقط (بدون النصوص) – أبقِه إن أردت Endpoint منفصل
+# ------------------------------------------------------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def upload_avatar(request):
+    """
+    POST /api/accounts/profile/upload-avatar/
+    body: multipart/form-data { avatar: <file> }
+    """
+    image = request.data.get('avatar')
+    if not image:
+        return Response({'error': 'الملف avatar مفقود'}, status=400)
+
+    profile = request.user.profile
+    profile.avatar = image
+    profile.save(update_fields=['avatar'])
+
+    return Response({
+        'avatar': request.build_absolute_uri(profile.avatar.url)
+    })
