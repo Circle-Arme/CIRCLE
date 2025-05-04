@@ -25,6 +25,7 @@ class ReplySerializer(serializers.ModelSerializer):
     liked_by_me  = serializers.SerializerMethodField()
     creator_name = serializers.SerializerMethodField()
     children     = serializers.SerializerMethodField()
+    parent_snippet = serializers.SerializerMethodField()
     file         = serializers.FileField(required=False, use_url=True)
     is_promoted  = serializers.BooleanField(read_only=True)
 
@@ -33,7 +34,7 @@ class ReplySerializer(serializers.ModelSerializer):
         fields = [
             "id", "thread", "reply_text", "created_by", "creator_name",
             "created_at", "parent_reply", "likes_count", "liked_by_me",
-            "file", "children", "is_promoted",
+            "file", "children", "is_promoted","parent_snippet",
         ]
 
     # ----- helpers
@@ -61,6 +62,19 @@ class ReplySerializer(serializers.ModelSerializer):
               .select_related("created_by")
         )
         return ReplySerializer(qs, many=True, context=self.context).data
+    
+    def get_parent_snippet(self, obj):
+        p = obj.parent_reply
+        if not p:
+            return None
+        return {
+            "id":   p.id,
+            "text": p.reply_text[:120],   # أول 120 حرفًا
+            "creator_name": (
+                p.created_by.get_full_name()
+                if p.created_by else "Unknown"
+            ),
+        }
 
 
 # ─────────────────────────── Thread ─────────────────────────────
