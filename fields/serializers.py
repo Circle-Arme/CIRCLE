@@ -13,6 +13,12 @@ class CommunitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Community
         fields = '__all__'
+    def get_level(self, obj):
+        user = self.context['request'].user
+        if not user.is_authenticated:
+            return None
+        uc = obj.memberships.filter(user=user).first()
+        return uc.level if uc else None
 
 class UserCommunitySerializer(serializers.ModelSerializer):
     community = CommunitySerializer(read_only=True)

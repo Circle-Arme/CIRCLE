@@ -56,21 +56,29 @@ class UserCommunityViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         community = get_object_or_404(Community, id=request.data.get('community'))
-        user = request.user
+        user      = request.user
 
         if UserCommunity.objects.filter(user=user, community=community).exists():
-            return Response(
-                {"detail": "أنت بالفعل عضو في هذا المجتمع!"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "أنت بالفعل عضو في هذا المجتمع!"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        # 1) أنشئ الاشتراك
-        membership = UserCommunity.objects.create(user=user, community=community)
+        level = request.data.get("level", "beginner")
+        if level not in dict(UserCommunity.LEVEL_CHOICES):
+            return Response({"detail": "قيمة level غير صحيحة."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        # 2) مزامنة مع حقل M2M في بروفايل المستخدم
-        request.user.profile.communities.add(community)
+        membership = UserCommunity.objects.create(
+            user=user,
+            community=community,
+            level=level
+        )
 
-        return Response({"detail": "تم الانضمام بنجاح!"}, status=status.HTTP_201_CREATED)
+        user.profile.communities.add(community)
+
+        return Response(
+            {"detail": "تم الانضمام بنجاح!", "level": membership.level},
+            status=status.HTTP_201_CREATED
+        )
 
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated], url_path='my')
@@ -135,3 +143,24 @@ class UserCommunityViewSet(viewsets.ModelViewSet):
                 {"detail": "أنت لست عضوًا في هذا المجتمع."},
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+    @action(detail=False, methods=["post"], url_path="change-level",
+        permission_classes=[IsAuthenticated])
+    def change_level(self, request):
+        """
+        body = {"community": 4, "level": "advanced"|"beginner"|"both"}
+        """
+        community_id = request.data.get("community")
+        new_level    = request.data.get("level")
+
+        if new_level not in dict(UserCommunity.LEVEL_CHOICES):
+            return Response({"detail": "قيمة level غير صحيحة."}, status=400)
+
+        uc = get_object_or_404(UserCommunity,
+                            user=request.user,
+                            community_id=community_id)
+
+        uc.level = new_level
+        uc.save(update_fields=["level"])
+        return Response({"detail": "تم تحديث المستوى.", "level": uc.level})
+
