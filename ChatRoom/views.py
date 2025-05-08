@@ -92,6 +92,14 @@ class ThreadViewSet(viewsets.ModelViewSet):
         membership = get_object_or_404(UserCommunity,
                                        user=self.request.user,
                                        community=community)
+        
+        room_id   = self.request.query_params.get("room_id")
+        room_type = self.request.query_params.get("room_type")
+
+        if room_id:
+            qs = qs.filter(chat_room_id=room_id)
+        elif room_type:
+            qs = qs.filter(chat_room__type=room_type)
 
         allowed = allowed_types(membership.level, self.request.user.user_type)
 
@@ -132,6 +140,14 @@ class ReplyViewSet(viewsets.ModelViewSet):
         membership = get_object_or_404(UserCommunity,
                                    user=self.request.user,
                                    community=community)
+        
+        room_id   = self.request.query_params.get("room_id")
+        room_type = self.request.query_params.get("room_type")
+
+        if room_id:
+            qs = qs.filter(chat_room_id=room_id)
+        elif room_type:
+            qs = qs.filter(chat_room__type=room_type)
 
         allowed = allowed_types(membership.level, self.request.user.user_type)
 

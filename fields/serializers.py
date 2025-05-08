@@ -8,11 +8,12 @@ class FieldSerializer(serializers.ModelSerializer):
 
 class CommunitySerializer(serializers.ModelSerializer):
     image = serializers.ImageField(read_only=True)  # 🔹 لإرجاع رابط الصورة
-    level = serializers.CharField(read_only=True)
+    level = serializers.SerializerMethodField()
 
     class Meta:
         model = Community
         fields = '__all__'
+
     def get_level(self, obj):
         user = self.context['request'].user
         if not user.is_authenticated:
