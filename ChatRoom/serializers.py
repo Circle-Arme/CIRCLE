@@ -94,6 +94,7 @@ class ThreadSerializer(serializers.ModelSerializer):
             "replies", "replies_tree",
             "replies_count", "likes_count", "liked_by_me",
             "is_job_opportunity", "job_type", "location", "salary",
+            "job_link","job_link_type",
             "classification", "tags",
         ]
 

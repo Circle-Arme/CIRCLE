@@ -72,6 +72,13 @@ class Thread(models.Model):
     job_type     = models.CharField(max_length=100, null=True, blank=True)
     location     = models.CharField(max_length=255, null=True, blank=True)
     salary       = models.CharField(max_length=100, null=True, blank=True)
+    job_link     = models.URLField(null=True, blank=True)
+    job_link_type = models.CharField(
+        max_length=20,
+        choices=[('direct', 'Direct Apply'), ('external', 'Company Page')],
+        null=True,
+       blank=True,
+   )
 
     classification = models.CharField(max_length=100, default="General")
     tags           = models.JSONField(default=list, blank=True)
