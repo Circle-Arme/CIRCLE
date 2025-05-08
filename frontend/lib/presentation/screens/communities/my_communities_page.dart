@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
 import 'package:frontend/data/models/user_profile_model.dart';
-import 'package:frontend/data/models/area_model.dart';
 import 'package:frontend/data/models/community_model.dart';
 import 'package:frontend/presentation/screens/communities/rooms_selection_page.dart';
 import 'package:frontend/presentation/screens/communities/communities_page.dart';
@@ -22,7 +21,7 @@ class MyCommunitiesPage extends StatefulWidget {
 
 class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
   List<CommunityModel>? _joinedCommunities;
-  String? _userType; // لتخزين نوع المستخدم (organization أو normal)
+  String? _userType;
 
   @override
   void initState() {
@@ -38,7 +37,6 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
         _userType = profile?.userType;
       });
     } catch (e) {
-      // في حال حدوث خطأ يمكن طباعته أو إظهاره
       print("Error loading user profile: $e");
     }
   }
@@ -50,7 +48,6 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
         _joinedCommunities = communities;
       });
     } catch (e) {
-      // يمكنك عرض رسالة خطأ هنا
       print(e.toString());
     }
   }
@@ -65,35 +62,88 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: const Color(0xFF326B80), size: 24.sp),
-          onPressed: () => Navigator.pop(context),
+        leading: Builder(
+          builder: (context) {
+            return IconButton(
+              icon: const Icon(Icons.menu, color: Color(0xFF326B80), size: 24),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            );
+          },
         ),
         centerTitle: true,
-        title: Text(
-          loc.communities,
+        title: const Text(
+          "CIRCLE",
           style: TextStyle(
-            color: const Color(0xFF326B80),
+            color: Color(0xFF326B80),
             fontWeight: FontWeight.bold,
-            fontSize: 18.sp,
+            fontSize: 18,
           ),
         ),
         actions: [
-          Icon(Icons.notifications_none, color: const Color(0xFF326B80), size: 24.sp),
+          const Icon(Icons.notifications_none, color: Color(0xFF326B80), size: 24),
           SizedBox(width: 12.w),
         ],
       ),
-      body: _joinedCommunities == null
-          ? const Center(child: CircularProgressIndicator())
-          : _joinedCommunities!.isEmpty
-          ? _buildEmptyState(context)
-          : ListView.builder(
-        padding: EdgeInsets.all(16.w),
-        itemCount: _joinedCommunities!.length,
-        itemBuilder: (context, index) {
-          final community = _joinedCommunities![index];
-          return _buildJoinedCommunityCard(context, community);
-        },
+      body: Stack(
+        children: [
+          _joinedCommunities == null
+              ? const Center(child: CircularProgressIndicator())
+              : _joinedCommunities!.isEmpty
+              ? _buildEmptyState(context)
+              : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(left: 16.w, top: 16.h, bottom: 8.h),
+                child: Text(
+                  "${loc.yourCommunities}:",
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF326B80),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: EdgeInsets.all(16.w),
+                  itemCount: _joinedCommunities!.length,
+                  itemBuilder: (context, index) {
+                    final community = _joinedCommunities![index];
+                    return _buildJoinedCommunityCard(context, community);
+                  },
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Padding(
+              padding: EdgeInsets.all(16.w),
+              child: FloatingActionButton.extended(
+                onPressed: () async {
+                  final areaId = await SharedPrefs.getLastSelectedAreaId();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const FieldsPage(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add, color: Color(0xFF326B80)),
+                label: Text(
+                  loc.joinCommunity,
+                  style: const TextStyle(color: Color(0xFF326B80)),
+                ),
+                backgroundColor: const  Color(0xFFF5F9F9), // لون الخلفية
+                foregroundColor: const Color(0xFF326B80), // لون الأيقونة والنص
+                shape: const StadiumBorder(
+                  side: BorderSide(color: Color(0xFF326B80)), // الحدود
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -104,7 +154,6 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
         CircleAvatar(
           radius: 60.r,
           backgroundColor: const Color(0xFFD9E6EC),
-          // يمكنك إضافة صورة إذا كانت متوفرة ضمن community.image
           backgroundImage: community.image != null ? NetworkImage(community.image!) : null,
         ),
         SizedBox(height: 8.h),
@@ -138,14 +187,14 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
               );
             }
           },
+        style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF326B80),
+        shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(30.r),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
+        ),
 
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF326B80),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30.r),
-            ),
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
-          ),
           child: const Icon(Icons.arrow_forward, color: Colors.white),
         ),
         Padding(
@@ -176,36 +225,6 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 16.h),
-            ElevatedButton(
-              onPressed: () async {
-                final areaId = await SharedPrefs.getLastSelectedAreaId();
-
-                if (areaId != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CommunitiesPage(areaId: areaId),
-                    ),
-                  );
-                } else {
-                  // إذا لم يُحدد المستخدم مجال، فانتقل إلى صفحة المجالات
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const FieldsPage(),
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF326B80),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30.r),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
-              ),
-              child: const Icon(Icons.arrow_forward, color: Colors.white),
-            ),
           ],
         ),
       ),

@@ -1,6 +1,7 @@
 // lib/presentation/screens/profile/profile_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,6 +10,7 @@ import 'package:frontend/data/models/user_profile_model.dart';
 import 'package:frontend/data/models/community_model.dart';
 import 'package:frontend/core/services/UserProfileService.dart';
 import 'package:frontend/core/services/CommunityService.dart';
+import 'package:frontend/core/services/upload_service.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
 import '../../widgets/custom_drawer.dart';
 import '../communities/communities_page.dart';
@@ -21,10 +23,12 @@ const _headerBg     = Color(0xFFE9F1F2);
 class ProfilePage extends StatefulWidget {
   final UserProfileModel profile;
   final bool isOwnProfile;
+  final bool isAdmin;
   const ProfilePage({
     Key? key,
     required this.profile,
     this.isOwnProfile = true,
+    this.isAdmin = false,
   }) : super(key: key);
 
   @override
@@ -34,6 +38,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   late UserProfileModel _profile;
   bool _hasChanges = false;
+  bool _uploading  = false;
 
   late final TextEditingController _nameCtl;
   late final TextEditingController _workCtl;
@@ -70,6 +75,28 @@ class _ProfilePageState extends State<ProfilePage> {
     _descCtl.dispose();
     _emailCtl.dispose();
     super.dispose();
+  }
+  /* ----------------------- Avatar ----------------------- */
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final xFile  = await picker.pickImage(source: ImageSource.gallery);
+    if (xFile == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final url = await UploadService.uploadAvatar(xFile.path);
+      setState(() {
+        _profile    = _profile.copyWith(avatarUrl: url);
+        _hasChanges = true;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -130,7 +157,7 @@ class _ProfilePageState extends State<ProfilePage> {
               });
               Navigator.pop(context);
             },
-            child: Text(loc.save),
+            child: Text(loc.save, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -218,11 +245,37 @@ class _ProfilePageState extends State<ProfilePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
-                  radius: 30.r,
+                  radius: 40.r,
                   backgroundColor: const Color(0xFFE1ECF4),
-                  child:
-                  const Icon(Icons.person, size: 30, color: _primaryColor),
+                  backgroundImage: _profile.avatarUrl != null && _profile.avatarUrl!.isNotEmpty
+                      ? NetworkImage(_profile.avatarUrl!)
+                      : null,
+                  child: _profile.avatarUrl == null
+                      ? const Icon(Icons.person, size: 40, color: _primaryColor)
+                      : null,
                 ),
+                if (widget.isOwnProfile)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: _uploading ? null : _pickAndUploadAvatar,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _primaryColor),
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: _uploading
+                            ? SizedBox(
+                            height: 16, width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.camera_alt, size: 16, color: _primaryColor),
+                      ),
+                    ),
+                  ),
+
                 SizedBox(width: 12.w),
                 Expanded(
                   child: Column(

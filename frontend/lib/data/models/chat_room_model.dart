@@ -26,6 +26,5 @@ class ChatRoomModel {
       'community': communityId,
       'name': name,
       'type': type,
-    };
-  }
+    };  }
 }

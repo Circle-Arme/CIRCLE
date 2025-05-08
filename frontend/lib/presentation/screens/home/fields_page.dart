@@ -11,7 +11,7 @@ import '../profile/user_profile_page.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
 
 class FieldsPage extends StatefulWidget {
-  final bool isProfileFilled; // هل تم ملء الملف الشخصي؟
+  final bool isProfileFilled;
 
   const FieldsPage({Key? key, this.isProfileFilled = false}) : super(key: key);
 
@@ -22,6 +22,9 @@ class FieldsPage extends StatefulWidget {
 class _FieldsPageState extends State<FieldsPage> {
   late Future<List<AreaModel>> futureAreas;
   bool _showProfilePrompt = false;
+  String _searchQuery = '';
+  List<AreaModel> _allAreas = [];
+  List<AreaModel> _filteredAreas = [];
 
   @override
   void initState() {
@@ -37,10 +40,17 @@ class _FieldsPageState extends State<FieldsPage> {
       setState(() {
         _showProfilePrompt = true;
       });
-
-      // سجل إن المستخدم شاف الرسالة عشان ما تتكرر
       await SharedPrefs.setProfilePromptSeen(true);
     }
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+      _filteredAreas = _allAreas.where((area) {
+        return area.title.toLowerCase().contains(query.toLowerCase());
+      }).toList();
+    });
   }
 
   @override
@@ -80,46 +90,73 @@ class _FieldsPageState extends State<FieldsPage> {
       ),
       body: Stack(
         children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-            child: FutureBuilder<List<AreaModel>>(
-              future: futureAreas,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      loc.errorOccurred(snapshot.error.toString()),
+          Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                child: TextField(
+                  onChanged: _onSearchChanged,
+                  decoration: InputDecoration(
+                    hintText: loc.searchAreas,
+                    prefixIcon: const Icon(Icons.search),
+                    contentPadding: EdgeInsets.symmetric(vertical: 10.h),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30.r),
+                      borderSide: BorderSide.none,
                     ),
-                  );
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(child: Text(loc.noAreas));
-                } else {
-                  final areas = snapshot.data!;
-                  return ListView.separated(
-                    itemCount: areas.length,
-                    separatorBuilder: (_, __) => SizedBox(height: 16.h),
-                    itemBuilder: (context, index) {
-                      final area = areas[index];
-                      return GestureDetector(
-                        onTap: () async{
-                          await SharedPrefs.saveLastSelectedAreaId(area.id.toString());
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  CommunitiesPage(areaId: area.id.toString()),
-                            ),
-                          );
-                        },
-                        child: AreaCard(area: area),
-                      );
+                    filled: true,
+                    fillColor: Colors.grey[200],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  child: FutureBuilder<List<AreaModel>>(
+                    future: futureAreas,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            loc.errorOccurred(snapshot.error.toString()),
+                          ),
+                        );
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return Center(child: Text(loc.noAreas));
+                      } else {
+                        _allAreas = snapshot.data!;
+                        _filteredAreas = _searchQuery.isEmpty
+                            ? _allAreas
+                            : _filteredAreas;
+                        return ListView.separated(
+                          itemCount: _filteredAreas.length,
+                          separatorBuilder: (_, __) => SizedBox(height: 16.h),
+                          itemBuilder: (context, index) {
+                            final area = _filteredAreas[index];
+                            return GestureDetector(
+                              onTap: () async {
+                                await SharedPrefs.saveLastSelectedAreaId(
+                                    area.id.toString());
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CommunitiesPage(
+                                        areaId: area.id.toString()),
+                                  ),
+                                );
+                              },
+                              child: AreaCard(area: area),
+                            );
+                          },
+                        );
+                      }
                     },
-                  );
-                }
-              },
-            ),
+                  ),
+                ),
+              ),
+            ],
           ),
           if (_showProfilePrompt)
             Container(
@@ -173,7 +210,6 @@ class _FieldsPageState extends State<FieldsPage> {
                               }
                             });
                           } else {
-                            // في حالة لم يتم العثور على الملف الشخصي
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: Text(
@@ -184,7 +220,7 @@ class _FieldsPageState extends State<FieldsPage> {
                         child: Text(
                           loc.fillProfile,
                           style:
-                              TextStyle(fontSize: 16.sp, color: Colors.white),
+                          TextStyle(fontSize: 16.sp, color: Colors.white),
                         ),
                       ),
                       SizedBox(height: 8.h),

@@ -10,6 +10,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> {
       try {
         final threads = await ThreadService.fetchThreads(
           event.communityId,
+          roomType: event.roomType,
           isJobOpportunity: event.isJobOpportunity,
         );
         emit(ThreadLoaded(threads));
@@ -23,6 +24,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> {
       try {
         await ThreadService.createThread(
           event.communityId,
+          event.roomType,
           event.title,
           event.content,
           event.classification,
@@ -35,6 +37,7 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> {
         );
         final threads = await ThreadService.fetchThreads(
           event.communityId,
+          roomType: event.roomType,
           isJobOpportunity: event.isJobOpportunity,
         );
         emit(ThreadLoaded(threads));

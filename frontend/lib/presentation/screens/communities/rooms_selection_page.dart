@@ -159,7 +159,7 @@ class RoomsSelectionPage extends StatelessWidget {
               onPressed: () async {
                 Navigator.pop(context);
                 try {
-                  await CommunityService.joinCommunity(communityId, level: "both");
+                  await CommunityService.changeCommunityLevel(communityId, "both");
                   await SharedPrefs.saveCommunityLevel(communityId, "both");
                   Navigator.pushReplacement(
                     context,
@@ -323,16 +323,16 @@ class RoomsSelectionPage extends StatelessWidget {
               },
             ),
           );
-
+          //style: TextStyle(fontSize: 14.sp, color: const Color(0xFFF5F9F9)),
           if (userLevel != "both") {
             roomCards.add(
               Padding(
                 padding: EdgeInsets.only(top: 24.h),
                 child: ElevatedButton.icon(
-                  icon: Icon(Icons.swap_horiz, size: 20.sp),
+                  icon: Icon(Icons.swap_horiz, size: 20.sp, color:  Color(0xFFF5F9F9)),
                   label: Text(
                     loc.changeMyLevel,
-                    style: TextStyle(fontSize: 14.sp),
+                    style: TextStyle(fontSize: 14.sp, color:  Color(0xFFF5F9F9)),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF326B80),

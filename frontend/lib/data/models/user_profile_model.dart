@@ -2,6 +2,7 @@ class UserProfileModel {
   final int id;
   final int userId;
   final String name;
+  final String avatarUrl;
   final String workEducation;
   final String position;
   final String description;
@@ -14,6 +15,7 @@ class UserProfileModel {
     required this.id,
     required this.userId,
     this.name           = '',
+    this.avatarUrl      = '',
     this.workEducation  = '',
     this.position       = '',
     this.description    = '',
@@ -25,18 +27,38 @@ class UserProfileModel {
 
   factory UserProfileModel.fromJson(Map<String,dynamic> json) {
     final int rawId = json['id'] as int;
-    final dynamic maybeUser = json['user']; // قد يكون int أو null
+    final dynamic maybeUser = json['user'];
+
     return UserProfileModel(
       id: rawId,
       userId: (maybeUser ?? rawId) as int,
-      name: json['name']            ?? '',
+      name: json['name'] ?? '',
+      avatarUrl: json['avatar'] ?? '',
       workEducation: json['work_education'] ?? '',
-      position: json['position']    ?? '',
+      position: json['position'] ?? '',
       description: json['description'] ?? '',
-      email: json['email']          ?? '',
-      website: json['website']      ?? '',
-      communities: List<String>.from(json['communities'] ?? []),
-      userType: json['user_type']   ?? 'normal',
+      email: json['email'] ?? '',
+      website: json['website'] ?? '',
+      communities: (json['communities'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())     // ← هنا الإصلاح
+          .toList(),
+      userType: json['user_type'] ?? 'normal',
+    );
+  }
+
+  factory UserProfileModel.empty() {
+    return const UserProfileModel(
+      id: 0,
+      userId: 0,
+      name: '',
+      avatarUrl:"",
+      workEducation: '',
+      position: '',
+      description: '',
+      email: '',
+      communities: [],
+      userType: 'organization', // أو 'normal' حسب حاجتك
+      website: '',
     );
   }
 
@@ -44,6 +66,7 @@ class UserProfileModel {
     int? id,
     int? userId,
     String? name,
+    String? avatarUrl,
     String? workEducation,
     String? position,
     String? description,
@@ -56,6 +79,7 @@ class UserProfileModel {
       id:            id            ?? this.id,
       userId:        userId        ?? this.userId,
       name:          name          ?? this.name,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       workEducation: workEducation ?? this.workEducation,
       position:      position      ?? this.position,
       description:   description   ?? this.description,
@@ -70,6 +94,7 @@ class UserProfileModel {
     'id'            : id,
     'userId'        : userId,
     'name'          : name,
+    'avatar'        : avatarUrl,
     'work_education': workEducation,
     'position'      : position,
     'description'   : description,
@@ -81,6 +106,7 @@ class UserProfileModel {
 
   bool get isNewUser =>
       name.isEmpty &&
+          avatarUrl.isEmpty&&
           workEducation.isEmpty &&
           position.isEmpty &&
           description.isEmpty &&

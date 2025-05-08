@@ -34,13 +34,13 @@ String _activeFilterType = 'topic';
   @override
   void initState() {
     super.initState();
-    _threadsFuture = ThreadService.fetchThreads(widget.communityId);
+    _threadsFuture = ThreadService.fetchThreads(widget.communityId, roomType: 'discussion_advanced');
     _userTypeFuture = AuthService.getUserType();
-    context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId)); // الآن يمكن الوصول إلى ThreadBloc
+    context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId, 'discussion_advanced')); // الآن يمكن الوصول إلى ThreadBloc
   }
 
   Future<void> _refreshThreads() async {
-    context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId));
+    context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId, 'discussion_advanced'));
   }
 
   List<ThreadModel> _filterThreads(List<ThreadModel> threads) {
@@ -73,6 +73,7 @@ String _activeFilterType = 'topic';
       MaterialPageRoute(
         builder: (_) => CreateThreadForm(
           communityId: widget.communityId,
+          roomType:'discussion_advanced',
           isJobOpportunity: false,
           threadBloc: context.read<ThreadBloc>(), // الآن يمكن الوصول إلى ThreadBloc
         ),

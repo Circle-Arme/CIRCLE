@@ -1,10 +1,10 @@
+// thread_page.dart
 import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:frontend/core/services/auth_service.dart';
@@ -42,20 +42,21 @@ class _ThreadPageState extends State<ThreadPage> {
   PlatformFile? _replyFile;
 
   bool _showScrollToBottom = false;
+  int? _selectedMsgIndex;
+
+  final DateFormat _timeFmt = DateFormat('h:mm a');
 
   @override
   void initState() {
     super.initState();
+    _threadFuture = ThreadService.getThreadById(widget.threadId);
     _loadThread();
-    _scrollController.addListener(_scrollListener);
-  }
-
-  void _scrollListener() {
-    final offset = _scrollController.offset;
-    setState(() {
-      // نظهر السهم إذا لم نكن في الأسفل
-      _showScrollToBottom =
-          offset < _scrollController.position.maxScrollExtent - 200;
+    _scrollController.addListener(() {
+      setState(() {
+        _showScrollToBottom =
+            _scrollController.offset <
+                _scrollController.position.maxScrollExtent - 200;
+      });
     });
   }
 
@@ -77,10 +78,7 @@ class _ThreadPageState extends State<ThreadPage> {
       for (final c in r.children) walk(c, depth + 1);
     }
 
-    for (final r in _thread!.repliesTree) {
-      walk(r, 1);
-    }
-
+    for (final r in _thread!.repliesTree) walk(r, 1);
     setState(() {});
   }
 
@@ -92,22 +90,17 @@ class _ThreadPageState extends State<ThreadPage> {
     });
   }
 
-  Future<void> _toggleReplyLike(String replyId) async {
-    try {
-      await ThreadService.toggleReplyLike(replyId);
-      setState(() {
-        if (_likedReplies.contains(replyId)) {
-          _replyLikesCount[replyId] = (_replyLikesCount[replyId] ?? 1) - 1;
-          _likedReplies.remove(replyId);
-        } else {
-          _replyLikesCount[replyId] = (_replyLikesCount[replyId] ?? 0) + 1;
-          _likedReplies.add(replyId);
-        }
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('خطأ: ${e.toString()}')));
-    }
+  Future<void> _toggleReplyLike(String id) async {
+    await ThreadService.toggleReplyLike(id);
+    setState(() {
+      if (_likedReplies.contains(id)) {
+        _replyLikesCount[id] = (_replyLikesCount[id] ?? 1) - 1;
+        _likedReplies.remove(id);
+      } else {
+        _replyLikesCount[id] = (_replyLikesCount[id] ?? 0) + 1;
+        _likedReplies.add(id);
+      }
+    });
   }
 
   Future<void> _pickReplyFile() async {
@@ -116,24 +109,23 @@ class _ThreadPageState extends State<ThreadPage> {
   }
 
   Future<void> _sendReply() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty && _replyFile == null) return;
-
-    final parentId = _replyingTo?.id;
+    final txt = _controller.text.trim();
+    if (txt.isEmpty && _replyFile == null) return;
     await ThreadService.createReply(
       widget.threadId,
-      text,
-      parentReplyId: parentId,
+      txt,
+      parentReplyId: _replyingTo?.id,
       file: _replyFile,
     );
-
-    setState(() {
-      _controller.clear();
-      _replyFile = null;
-      _replyingTo = null;
-    });
+    _controller.clear();
+    _replyFile = null;
+    _replyingTo = null;
     await _loadThread();
-    _scrollToBottom();
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   void _scrollToBottom() {
@@ -144,328 +136,258 @@ class _ThreadPageState extends State<ThreadPage> {
     );
   }
 
-  Widget _buildMsg(_Message m, AppLocalizations loc) {
-    // الثريد الرئيسي
+  Widget _buildMsgTile(int index, AppLocalizations loc) {
+    final m = _messages[index];
+    final isSelected = _selectedMsgIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() =>
+      _selectedMsgIndex = isSelected ? null : index),
+      child: Stack(
+        alignment: m.isThread
+            ? Alignment.topRight
+            : (m.isMe ? Alignment.topRight : Alignment.topLeft),
+        clipBehavior: Clip.none,
+        children: [
+          _buildMsgContent(m, loc),
+          if (isSelected) _buildActionBar(m, index),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMsgContent(_Message m, AppLocalizations loc) {
+    final timeText = _timeFmt.format(m.timestamp);
+    final bool liked = m.isThread ? _isLiked : _likedReplies.contains(m.id);
+    final int likes = m.isThread ? _likesCount : (_replyLikesCount[m.id] ?? 0);
+
     if (m.isThread) {
       return Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        child: Card(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12.r)),
-          elevation: 3,
-          child: Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _avatar(m.senderName),
-                    SizedBox(width: 8.w),
-                    GestureDetector(
-                      onTap: () async {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (_) =>
-                          const Center(child: CircularProgressIndicator()),
-                        );
-                        try {
-                          final profile = await UserProfileService
-                              .fetchUserProfileById(m.userId);
-                          Navigator.pop(context);
-                          if (profile.userType == 'organization') {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => OrganizationProfilePage(
-                                  profile: profile,
-                                  isOwnProfile: m.isMe,
-                                ),
-                              ),
-                            );
-                          } else {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ProfilePage(
-                                  profile: profile,
-                                  isOwnProfile: m.isMe,
-                                ),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('فشل جلب البروفايل: $e')),
-                          );
-                        }
-                      },
-                      child: Text(
+        padding: EdgeInsets.symmetric(vertical: 6.h),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(top: 16.h, left: -36.w, child: _avatar(m.senderName)),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 0.80.sw),
+              child: Card(
+                margin: EdgeInsets.only(left: 36.w),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r)),
+                elevation: 2,
+                child: Padding(
+                  padding: EdgeInsets.all(12.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         m.senderName,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13.sp,
-                          color:
-                          m.isMe ? Colors.blue.shade700 : Colors.orange.shade700,
+                          color: m.isMe
+                              ? Colors.blue.shade700
+                              : Colors.orange.shade700,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12.h),
-                Text(
-                  m.text,
-                  style: TextStyle(fontSize: 16.sp, color: Colors.black87),
-                ),
-                if (m.fileUrl != null)
-                  Padding(
-                    padding: EdgeInsets.only(top: 12.h),
-                    child: _fileWidget(m.fileUrl!, loc),
-                  ),
-                SizedBox(height: 12.h),
-                Row(
-                  children: [
-                    Text(
-                      timeago.format(
-                        m.timestamp,
-                        locale:
-                        Localizations.localeOf(context).languageCode,
-                      ),
-                      style: TextStyle(
-                          fontSize: 12.sp, color: Colors.grey[600]),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: _toggleLike,
-                      child: Row(
+                      SizedBox(height: 8.h),
+                      Text(m.text, style: TextStyle(fontSize: 14.sp)),
+                      if (m.fileUrl != null)
+                        Padding(
+                          padding: EdgeInsets.only(top: 8.h),
+                          child: _fileWidget(m.fileUrl!, loc),
+                        ),
+                      SizedBox(height: 8.h),
+                      Row(
                         children: [
-                          Icon(
-                            _isLiked
-                                ? Icons.favorite
-                                : Icons.favorite_border,
-                            size: 18.r,
-                            color:
-                            _isLiked ? Colors.red : Colors.grey[600],
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            '$_likesCount',
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              color: Colors.grey[700],
+                          Text(timeText,
+                              style: TextStyle(
+                                  fontSize: 11.sp, color: Colors.grey[600])),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: _toggleLike,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  liked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color:
+                                  liked ? Colors.red : Colors.grey[600],
+                                  size: 18.r,
+                                ),
+                                SizedBox(width: 4.w),
+                                Text('$likes',
+                                    style: TextStyle(fontSize: 12.sp)),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       );
     }
 
-    // الردود
-    final double baseIndent = 24.w;
-    return Stack(
-      children: [
-        if (m.depth > 0)
+    // الردود بدون الخط الرمادي
+    final baseIndent = 24.w;
+    final leftPad = 16.w + m.depth * baseIndent;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 6.h),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
           Positioned(
-            left: 16.w + (m.depth - 1) * baseIndent + 8.w,
-            top: 0,
-            bottom: 0,
-            width: 2.w,
-            child: Container(color: Colors.grey.shade300),
+            left: leftPad - 36.w,
+            top: 12.h,
+            child: _avatar(m.senderName),
           ),
-        Padding(
-          padding: EdgeInsets.only(
-            left: 16.w + m.depth * baseIndent,
-            right: 16.w,
-            top: 8.h,
-            bottom: 8.h,
-          ),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: m.isMe
-                  ? Colors.blue.shade100
-                  : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            padding:
-            EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          Padding(
+            padding: EdgeInsets.only(left: leftPad, right: 16.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    _avatar(m.senderName),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () async {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (_) =>
-                            const Center(child: CircularProgressIndicator()),
-                          );
-                          try {
-                            final profile = await UserProfileService
-                                .fetchUserProfileById(m.userId);
-                            Navigator.pop(context);
-                            if (profile.userType == 'organization') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      OrganizationProfilePage(
-                                        profile: profile,
-                                        isOwnProfile: m.isMe,
-                                      ),
-                                ),
-                              );
-                            } else {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ProfilePage(
-                                    profile: profile,
-                                    isOwnProfile: m.isMe,
-                                  ),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content:
-                                  Text('فشل جلب البروفايل: $e')),
-                            );
-                          }
-                        },
-                        child: Text(
-                          m.senderName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13.sp,
-                            color: m.isMe
-                                ? Colors.blue.shade700
-                                : Colors.orange.shade700,
-                          ),
-                        ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 0.70.sw),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: m.isMe
+                          ? const Color(0xFF2C6A77)
+                          : const Color(0xFFE78A3A),
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(12),
+                        topRight: const Radius.circular(12),
+                        bottomLeft: Radius.circular(m.isMe ? 12 : 0),
+                        bottomRight: Radius.circular(m.isMe ? 0 : 12),
                       ),
                     ),
-                    Text(
-                      timeago.format(
-                        m.timestamp,
-                        locale:
-                        Localizations.localeOf(context).languageCode,
-                      ),
-                      style: TextStyle(
-                          fontSize: 10.sp, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-                if (m.text.isNotEmpty)
-                  Padding(
-                    padding: EdgeInsets.only(top: 8.h),
-                    child: Text(
-                      m.text,
-                      style: TextStyle(
-                          fontSize: 14.sp, color: Colors.black87),
-                    ),
-                  ),
-                if (m.fileUrl != null)
-                  Padding(
-                    padding: EdgeInsets.only(top: 8.h),
-                    child: _fileWidget(m.fileUrl!, loc),
-                  ),
-                Padding(
-                  padding: EdgeInsets.only(top: 8.h),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GestureDetector(
-                        onTap: () => _toggleReplyLike(m.id),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.arrow_upward,
-                              size: 18.r,
-                              color: _likedReplies.contains(m.id)
-                                  ? Colors.orange.shade700
-                                  : Colors.grey[600],
+                    padding: EdgeInsets.symmetric(
+                        vertical: 12.h, horizontal: 14.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (m.replyTo != null)
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                vertical: 6.h, horizontal: 8.w),
+                            margin: EdgeInsets.only(bottom: 6.h),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(.10),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              '${_replyLikesCount[m.id] ?? 0}',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                color: Colors.grey[700],
-                              ),
+                            child: Text(
+                              m.replyTo!.text,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.white70),
                             ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 16.w),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() => _replyingTo = m);
-                          _focusNode.requestFocus();
-                        },
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 8.w, vertical: 4.h),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(12.r),
                           ),
-                          child: Text(
-                            loc.reply,
+                        Text(m.text,
                             style: TextStyle(
-                              fontSize: 12.sp,
-                              color: Colors.blue.shade700,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                                fontSize: 14.sp, color: Colors.white)),
+                        SizedBox(height: 4.h),
+                        Text(timeText,
+                            style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.grey[600])),
+                      ],
+                    ),
                   ),
                 ),
+                if (likes > 0)
+                  Padding(
+                    padding: EdgeInsets.only(top: 4.h, left: 4.w),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.thumb_up,
+                            size: 16.r, color: Colors.blue),
+                        SizedBox(width: 4.w),
+                        Text('$likes',
+                            style: TextStyle(
+                                fontSize: 12.sp,
+                                color: Colors.grey[600])),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionBar(_Message m, int index) {
+    final isThread = m.isThread;
+    return Positioned(
+      right: m.isMe ? 4.w : null,
+      left: m.isMe ? null : 4.w,
+      top: 0,
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.reply, size: 20, color: Colors.teal),
+              onPressed: () {
+                setState(() {
+                  _replyingTo = m;
+                  _selectedMsgIndex = null;
+                });
+                _focusNode.requestFocus();
+              },
+            ),
+            IconButton(
+              icon: Icon(
+                isThread
+                    ? (_isLiked ? Icons.favorite : Icons.favorite_border)
+                    : (_likedReplies.contains(m.id)
+                    ? Icons.thumb_up
+                    : Icons.thumb_up_off_alt),
+                size: 20,
+                color: isThread
+                    ? (_isLiked ? Colors.red : Colors.grey)
+                    : (_likedReplies.contains(m.id)
+                    ? Colors.blue
+                    : Colors.grey),
+              ),
+              onPressed: () {
+                setState(() {
+                  if (isThread) {
+                    _toggleLike();
+                  } else {
+                    _toggleReplyLike(m.id);
+                  }
+                  _selectedMsgIndex = null;
+                });
+              },
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   Widget _avatar(String n) {
-    final color = Colors.primaries[n.hashCode % Colors.primaries.length].shade200;
+    final color =
+        Colors.primaries[n.hashCode % Colors.primaries.length].shade200;
     return CircleAvatar(
       radius: 16.r,
       backgroundColor: color,
       child: Text(
         n.isNotEmpty ? n[0].toUpperCase() : '?',
         style: TextStyle(
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
+            fontSize: 12.sp, fontWeight: FontWeight.w600, color: Colors.white),
       ),
     );
   }
@@ -474,8 +396,8 @@ class _ThreadPageState extends State<ThreadPage> {
     final img = ['.png', '.jpg', '.jpeg', '.gif']
         .any((ext) => url.toLowerCase().endsWith(ext));
     return InkWell(
-      onTap: () => launchUrl(Uri.parse(url),
-          mode: LaunchMode.externalApplication),
+      onTap: () =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       child: img
           ? ClipRRect(
         borderRadius: BorderRadius.circular(12.r),
@@ -593,8 +515,8 @@ class _ThreadPageState extends State<ThreadPage> {
             Row(
               children: [
                 IconButton(
-                  icon: Icon(Icons.attach_file,
-                      size: 24.r, color: Colors.grey[700]),
+                  icon:
+                  Icon(Icons.attach_file, size: 24.r, color: Colors.grey),
                   onPressed: _pickReplyFile,
                 ),
                 Expanded(
@@ -628,8 +550,7 @@ class _ThreadPageState extends State<ThreadPage> {
                   mini: true,
                   onPressed: _sendReply,
                   backgroundColor: Colors.blue,
-                  child:
-                  Icon(Icons.send, size: 20.r, color: Colors.white),
+                  child: Icon(Icons.send, size: 20.r, color: Colors.white),
                 ),
               ],
             ),
@@ -642,7 +563,6 @@ class _ThreadPageState extends State<ThreadPage> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -697,7 +617,7 @@ class _ThreadPageState extends State<ThreadPage> {
                   controller: _scrollController,
                   padding: EdgeInsets.symmetric(vertical: 10.h),
                   itemCount: _messages.length,
-                  itemBuilder: (_, i) => _buildMsg(_messages[i], loc),
+                  itemBuilder: (_, i) => _buildMsgTile(i, loc),
                 ),
               ),
               _input(loc),
@@ -742,6 +662,7 @@ class _Message {
   final bool isThread;
   final String? fileUrl;
   final bool isLiked;
+  final _Message? replyTo; // يدعم الاقتباس داخل الفقاعة
 
   _Message({
     required this.id,
@@ -754,10 +675,10 @@ class _Message {
     required this.isThread,
     this.fileUrl,
     required this.isLiked,
+    this.replyTo,
   });
 
-  factory _Message.fromThread(
-      ThreadModel t, String? currentUserId) =>
+  factory _Message.fromThread(ThreadModel t, String? currentUserId) =>
       _Message(
         id: t.id,
         userId: t.creatorId,
@@ -784,5 +705,19 @@ class _Message {
         isThread: false,
         fileUrl: r.file,
         isLiked: r.isLiked,
+        replyTo: r.parentSnippet == null
+            ? null
+            : _Message(
+          id:         r.parentSnippet!.id,
+          userId:     r.parentSnippet!.creatorId,
+          depth:      depth - 1,
+          text:       r.parentSnippet!.text,
+          senderName: r.parentSnippet!.creatorName,
+          timestamp:  r.createdAt,      // لا أهمية كبيرة للوقت هنا
+          isMe:       r.parentSnippet!.creatorId == currentUserId,
+          isThread:   false,
+          fileUrl:    r.parentSnippet!.file,
+          isLiked:    false,
+        ),
       );
 }

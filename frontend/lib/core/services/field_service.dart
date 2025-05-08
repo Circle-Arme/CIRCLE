@@ -2,17 +2,20 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:frontend/core/utils/shared_prefs.dart';
 import 'package:frontend/data/models/area_model.dart';
+import '../utils/api_config.dart';
 
 class FieldService {
-  static const String _baseUrl = "http://10.0.2.2:8000/api/admin/fields";
-
+  static String get _fieldsAdminBase => '${ApiConfig.baseUrl}/admin/fields';
+  //http://192.168.1.5:8000
+  //static const String _baseUrl = "http://192.168.1.5:8000/api/admin/fields";
 
   static Future<List<AreaModel>> fetchFields() async {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
+    final uri = Uri.parse('$_fieldsAdminBase/');
     final response = await http.get(
-      Uri.parse("$_baseUrl/"),
+      uri,
       headers: {
         "Authorization": "Bearer $token",
         "Content-Type": "application/json",
@@ -37,8 +40,9 @@ class FieldService {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
+    final uri = Uri.parse('$_fieldsAdminBase/');
     final response = await http.post(
-      Uri.parse("$_baseUrl/"),
+      uri,
       headers: {
         "Authorization": "Bearer $token",
         "Content-Type": "application/json",
@@ -67,8 +71,9 @@ class FieldService {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
+    final uri = Uri.parse('$_fieldsAdminBase/');
     final response = await http.put(
-      Uri.parse("$_baseUrl/$fieldId/"),
+      uri,
       headers: {
         "Authorization": "Bearer $token",
         "Content-Type": "application/json",
@@ -97,8 +102,9 @@ class FieldService {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
+    final uri = Uri.parse('$_fieldsAdminBase/');
     final response = await http.delete(
-      Uri.parse("$_baseUrl/$fieldId/"),
+      uri,
       headers: {
         "Authorization": "Bearer $token",
         "Content-Type": "application/json",

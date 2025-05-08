@@ -33,13 +33,13 @@ class _DiscussionRoomPageState extends State<DiscussionRoomPage> {
   @override
   void initState() {
     super.initState();
-    _threadsFuture = ThreadService.fetchThreads(widget.communityId);
+    _threadsFuture = ThreadService.fetchThreads(widget.communityId, roomType: 'discussion_general');
     _userTypeFuture = AuthService.getUserType();
-    context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId));
+    context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId, 'discussion_general'));
   }
 
   Future<void> _refreshThreads() async {
-    context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId));
+    context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId, 'discussion_general'));
   }
 
   List<ThreadModel> _filterThreads(List<ThreadModel> threads) {
@@ -70,6 +70,7 @@ class _DiscussionRoomPageState extends State<DiscussionRoomPage> {
         builder: (_) => CreateThreadForm(
           communityId: widget.communityId,
           isJobOpportunity: false,
+          roomType: 'discussion_general',
           threadBloc: context.read<ThreadBloc>(),
         ),
       ),

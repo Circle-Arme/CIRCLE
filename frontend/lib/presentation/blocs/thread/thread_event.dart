@@ -5,13 +5,15 @@ abstract class ThreadEvent {}
 
 class FetchThreadsEvent extends ThreadEvent {
   final int communityId;
+  final String roomType;
   final bool isJobOpportunity;
 
-  FetchThreadsEvent(this.communityId, {this.isJobOpportunity = false});
+  FetchThreadsEvent(this.communityId, this.roomType, {this.isJobOpportunity = false});
 }
 
 class CreateThreadEvent extends ThreadEvent {
   final int communityId;
+  final String roomType;
   final String title;
   final String content;
   final String classification;
@@ -26,6 +28,7 @@ class CreateThreadEvent extends ThreadEvent {
 
   CreateThreadEvent(
       this.communityId,
+      this.roomType,
       this.title,
       this.content,
       this.classification,

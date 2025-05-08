@@ -1,19 +1,22 @@
+// lib/presentation/screens/auth/login_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:frontend/presentation/blocs/language/language_bloc.dart';
 import 'package:frontend/presentation/blocs/language/language_event.dart';
 import 'package:frontend/presentation/blocs/auth/auth_bloc.dart';
 import 'package:frontend/presentation/blocs/auth/auth_event.dart';
 import 'package:frontend/presentation/blocs/auth/auth_state.dart';
+
 import 'package:frontend/core/utils/shared_prefs.dart';
-import 'package:frontend/data/models/area_model.dart';
 import 'package:frontend/core/services/CommunityService.dart';
+
+import '../admin/admin_dashboard_page.dart';
 import '../home/fields_page.dart';
 import '../communities/my_communities_page.dart';
-import '../profile/organization_profile_page.dart';
-import '../admin/admin_dashboard_page.dart';
 import 'regstraion_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -24,14 +27,13 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
+  final _formKey         = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  static const Color primaryTeal = Color(0xFF2A6776);
+  static const Color primaryTeal    = Color(0xFF2A6776);
   static const Color loginButtonColor = Color(0xFFE0E0E0);
-  static const Color backgroundWhite = Colors.white;
 
   void _submitLogin() {
     if (_formKey.currentState!.validate()) {
@@ -46,18 +48,23 @@ class _LoginPageState extends State<LoginPage> {
 
   void _toggleLanguage() {
     final currentLang = Localizations.localeOf(context).languageCode;
-    final newLocale =
-    currentLang == 'ar' ? const Locale('en') : const Locale('ar');
-    context.read<LanguageBloc>().add(ChangeLanguageEvent(newLocale));
+    final newLocale = currentLang == 'ar'
+        ? const Locale('en')
+        : const Locale('ar');
+    context.read<LanguageBloc>()
+        .add(ChangeLanguageEvent(newLocale));
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
-      backgroundColor: backgroundWhite,
+      backgroundColor: Colors.white,
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) async {
           if (state is AuthAuthenticated) {
+            // 1) Admin
             if (state.userType == 'admin') {
               Navigator.pushReplacement(
                 context,
@@ -65,45 +72,64 @@ class _LoginPageState extends State<LoginPage> {
                   builder: (_) => const AdminDashboardPage(),
                 ),
               );
-            } else if (state.userType == 'organization') {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => OrganizationProfilePage(profile: state.userProfile),
-                ),
-              );
-            } else if (state.isNewUser) {
-              Navigator.pushReplacementNamed(context, '/fields');
-            } else {
-              final joinedCommunities = await CommunityService.fetchMyCommunities();
-              if (joinedCommunities.isEmpty) {
-                Navigator.pushReplacementNamed(context, '/fields');
+              return;
+            }
+            // 2) Organization user → لا نبني بروفايل، بل ننقل حسب انضمام المجتمعات
+            if (state.userType == 'organization') {
+              final joined = await CommunityService.fetchMyCommunities();
+              if (joined.isEmpty) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const FieldsPage(),
+                  ),
+                );
               } else {
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => const MyCommunitiesPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const MyCommunitiesPage(),
+                  ),
                 );
               }
+              return;
             }
-          } else if (state is AuthError) {
+            // 3) Normal user جديد
+            if (state.isNewUser) {
+              Navigator.pushReplacementNamed(context, '/fields');
+              return;
+            }
+            // 4) Normal user قديم
+            final joined = await CommunityService.fetchMyCommunities();
+            if (joined.isEmpty) {
+              Navigator.pushReplacementNamed(context, '/fields');
+            } else {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MyCommunitiesPage(),
+                ),
+              );
+            }
+          }
+          else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
             );
           }
         },
-
-          child: OrientationBuilder(
+        child: OrientationBuilder(
           builder: (context, orientation) {
             return orientation == Orientation.portrait
-                ? _buildPortraitLayout()
-                : _buildLandscapeLayout();
+                ? _buildPortrait(loc)
+                : _buildLandscape(loc);
           },
         ),
       ),
     );
   }
 
-  Widget _buildPortraitLayout() {
+  Widget _buildPortrait(AppLocalizations loc) {
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -123,7 +149,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 SizedBox(height: 10.h),
                 Text(
-                  'Enhance your skills and build a strong\nprofessional network',
+                  loc.welcomeSubtitle,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white, fontSize: 16.sp),
                 ),
@@ -133,14 +159,14 @@ class _LoginPageState extends State<LoginPage> {
           SizedBox(height: 40.h),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 35.w),
-            child: _buildForm(),
+            child: _buildForm(loc),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildLandscapeLayout() {
+  Widget _buildLandscape(AppLocalizations loc) {
     return Row(
       children: [
         Expanded(
@@ -166,7 +192,7 @@ class _LoginPageState extends State<LoginPage> {
             child: Container(
               constraints: BoxConstraints(maxWidth: 500.w),
               padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 30.h),
-              child: _buildForm(isLandscape: true),
+              child: _buildForm(loc, isLandscape: true),
             ),
           ),
         ),
@@ -174,36 +200,39 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildForm({bool isLandscape = false}) {
+  Widget _buildForm(AppLocalizations loc, {bool isLandscape = false}) {
     return Form(
       key: _formKey,
       child: Column(
         children: [
-          _buildEmailField(fontSize: isLandscape ? 14.sp : null),
+          _buildEmailField(loc, fontSize: isLandscape ? 14.sp : null),
           SizedBox(height: 20.h),
-          _buildPasswordField(fontSize: isLandscape ? 14.sp : null),
+          _buildPasswordField(loc, fontSize: isLandscape ? 14.sp : null),
           SizedBox(height: 30.h),
-          _buildLoginButton(
+          _buildLoginButton(loc,
             height: isLandscape ? 80.h : null,
             fontSize: isLandscape ? 8.sp : null,
             isLandscape: isLandscape,
           ),
           SizedBox(height: 40.h),
-          SizedBox(width: 30.w, child: Divider(color: primaryTeal, thickness: 5)),
+          SizedBox(
+            width: 30.w,
+            child: Divider(color: primaryTeal, thickness: 5),
+          ),
           SizedBox(height: 40.h),
-          _buildSignUpAndLanguage(isLandscape: isLandscape),
+          _buildSignUpAndLanguage(loc, isLandscape: isLandscape),
         ],
       ),
     );
   }
 
-  Widget _buildEmailField({double? fontSize}) {
+  Widget _buildEmailField(AppLocalizations loc, {double? fontSize}) {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
       style: TextStyle(fontSize: fontSize ?? 16.sp),
       decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.emailLabel,
+        labelText: loc.emailLabel,
         labelStyle: TextStyle(color: primaryTeal),
         fillColor: Colors.white,
         filled: true,
@@ -214,24 +243,24 @@ class _LoginPageState extends State<LoginPage> {
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return AppLocalizations.of(context)!.emailHint;
+          return loc.emailHint;
         }
-        final emailPattern = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w]{2,4}$');
-        if (!emailPattern.hasMatch(value)) {
-          return AppLocalizations.of(context)!.invalidEmail;
+        final pattern = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w]{2,4}$');
+        if (!pattern.hasMatch(value)) {
+          return loc.invalidEmail;
         }
         return null;
       },
     );
   }
 
-  Widget _buildPasswordField({double? fontSize}) {
+  Widget _buildPasswordField(AppLocalizations loc, {double? fontSize}) {
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword,
       style: TextStyle(fontSize: fontSize ?? 16.sp),
       decoration: InputDecoration(
-        labelText: AppLocalizations.of(context)!.passwordLabel,
+        labelText: loc.passwordLabel,
         labelStyle: TextStyle(color: primaryTeal),
         fillColor: Colors.white,
         filled: true,
@@ -241,25 +270,33 @@ class _LoginPageState extends State<LoginPage> {
         ),
         suffixIcon: IconButton(
           icon: Icon(
-            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+            _obscurePassword
+                ? Icons.visibility_off
+                : Icons.visibility,
             color: primaryTeal,
           ),
-          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+          onPressed: () =>
+              setState(() => _obscurePassword = !_obscurePassword),
         ),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return AppLocalizations.of(context)!.passwordHint;
+          return loc.passwordHint;
         }
         if (value.length < 6) {
-          return AppLocalizations.of(context)!.shortPassword;
+          return loc.shortPassword;
         }
         return null;
       },
     );
   }
 
-  Widget _buildLoginButton({double? height, double? fontSize, bool isLandscape = false}) {
+  Widget _buildLoginButton(
+      AppLocalizations loc, {
+        double? height,
+        double? fontSize,
+        bool isLandscape = false,
+      }) {
     final button = SizedBox(
       height: height ?? 50.h,
       width: double.infinity,
@@ -277,7 +314,7 @@ class _LoginPageState extends State<LoginPage> {
             child: isLoading
                 ? CircularProgressIndicator(color: primaryTeal)
                 : Text(
-              AppLocalizations.of(context)!.loginButton,
+              loc.loginButton,
               style: TextStyle(
                 color: primaryTeal,
                 fontSize: fontSize ?? 18.sp,
@@ -287,26 +324,32 @@ class _LoginPageState extends State<LoginPage> {
         },
       ),
     );
-    return isLandscape
-        ? Align(
-      alignment: Alignment.center,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 300.w),
-        child: button,
-      ),
-    )
-        : button;
+    if (isLandscape) {
+      return Align(
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 300.w),
+          child: button,
+        ),
+      );
+    }
+    return button;
   }
 
-  Widget _buildSignUpAndLanguage({bool isLandscape = false}) {
-    final signUpButton = SizedBox(
+  Widget _buildSignUpAndLanguage(
+      AppLocalizations loc, {
+        bool isLandscape = false,
+      }) {
+    final signUpBtn = SizedBox(
       height: 50.h,
       width: double.infinity,
       child: ElevatedButton(
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => CreateAccountPage()),
+            MaterialPageRoute(
+              builder: (_) => const CreateAccountPage(),
+            ),
           );
         },
         style: ElevatedButton.styleFrom(
@@ -316,13 +359,13 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
         child: Text(
-          AppLocalizations.of(context)!.signUpButton,
+          loc.signUpButton,
           style: TextStyle(color: Colors.white, fontSize: 18.sp),
         ),
       ),
     );
 
-    final languageButton = TextButton(
+    final langBtn = TextButton(
       onPressed: _toggleLanguage,
       child: Text(
         Localizations.localeOf(context).languageCode == 'ar'
@@ -334,20 +377,21 @@ class _LoginPageState extends State<LoginPage> {
 
     final column = Column(
       children: [
-        signUpButton,
+        signUpBtn,
         SizedBox(height: 16.h),
-        languageButton,
+        langBtn,
       ],
     );
 
-    return isLandscape
-        ? Align(
-      alignment: Alignment.center,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 300.w),
-        child: column,
-      ),
-    )
-        : column;
+    if (isLandscape) {
+      return Align(
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 300.w),
+          child: column,
+        ),
+      );
+    }
+    return column;
   }
 }

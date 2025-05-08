@@ -5,16 +5,19 @@ import 'package:frontend/core/utils/shared_prefs.dart';
 import 'package:frontend/core/services/auth_service.dart';
 import 'package:frontend/core/services/auth_http.dart';
 import 'package:frontend/core/exceptions/community_exception.dart';
+import 'package:http_parser/http_parser.dart';
+import '../utils/api_config.dart';
 
 class CommunityService {
-  static const String _baseUrl = "http://10.0.2.2:8000/api";
-
+  static String get _base => ApiConfig.baseUrl;
+  //http://192.168.1.5:8000
+  //static const String _baseUrl = "http://192.168.1.5:8000/api";
   /// جلب المجتمعات في مجال (Field) معيّن
   static Future<List<CommunityModel>> fetchCommunities(String areaId) async {
+    final uri = Uri.parse('$_base/fields/$areaId/communities/');
     try {
-      final uri = Uri.parse("$_baseUrl/fields/$areaId/communities/");
-      final response = await AuthHttp.get(uri);
 
+      final response = await AuthHttp.get(uri);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -31,7 +34,7 @@ class CommunityService {
 
   /// الانضمام لمجتمع مع تحديد المستوى
   /// لا يحتاج صلاحية أدمن
-  static Future<void> joinCommunity(
+  static Future<String> joinCommunity(
       int communityId, {
         String level = 'beginner',
       }) async {
@@ -41,7 +44,7 @@ class CommunityService {
         throw CommunityException('No authentication token available');
       }
 
-      final uri = Uri.parse("$_baseUrl/user-communities/");
+      final uri = Uri.parse('$_base/user-communities/');
       final response = await AuthHttp.post(
         uri,
         headers: {
@@ -54,13 +57,38 @@ class CommunityService {
         }),
       );
 
-      if (response.statusCode != 201) {
+      if (response.statusCode == 201) {
+        // الـ API الآن يرجع {"detail": "...", "level": "<level>"}
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return body['level'] as String;
+      } else {
         throw CommunityException(
           'Failed to join community: ${response.statusCode} - ${response.body}',
         );
       }
     } catch (e) {
       throw CommunityException('Error joining community: ${e.toString()}');
+    }
+  }
+  /// يغيّر مستوى المستخدم في مجتمع موجود
+  static Future<String> changeCommunityLevel(int communityId, String newLevel) async {
+    final uri = Uri.parse('$_base/user-communities/change-level/');
+    final response = await AuthHttp.post(
+      uri,
+      headers: { "Content-Type": "application/json" },
+      body: jsonEncode({
+        "community": communityId,
+        "level": newLevel,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      return body['level'] as String;
+    } else {
+      throw CommunityException(
+        'Failed to change level: ${response.statusCode} - ${response.body}',
+      );
     }
   }
 
@@ -72,9 +100,8 @@ class CommunityService {
         throw CommunityException('No authentication token available');
       }
 
-      final uri = Uri.parse("$_baseUrl/user-communities/my/");
+      final uri = Uri.parse("$_base/user-communities/my/");
       final response = await AuthHttp.get(uri);
-
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -97,7 +124,7 @@ class CommunityService {
         throw CommunityException('No authentication token available');
       }
 
-      final uri = Uri.parse("$_baseUrl/user-communities/leave/?community_id=$communityId");
+      final uri = Uri.parse("$_base/user-communities/leave/?community_id=$communityId");
       final response = await http.delete(
         uri,
         headers: {
@@ -106,7 +133,6 @@ class CommunityService {
         },
       );
 
-      // في الـ backend، تعيد 204 أو 200 إذا نجحت
       if (response.statusCode != 204 && response.statusCode != 200) {
         throw CommunityException(
           'Failed to leave community: ${response.statusCode} - ${response.body}',
@@ -121,34 +147,39 @@ class CommunityService {
   static Future<void> createCommunity(
       int fieldId,
       String name,
-      String? image,
+      String? imagePath,
       ) async {
     final token = await SharedPrefs.getAccessToken();
     if (token == null || token.isEmpty) {
-      throw Exception("لا يوجد توكن (AccessToken) محفوظ.");
+      throw CommunityException("لا يوجد توكن (AccessToken) محفوظ.");
     }
 
-    final uri = Uri.parse("$_baseUrl/admin/communities/");
-    final response = await http.post(
-      uri,
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
-      body: jsonEncode({
-        "field": fieldId,
-        "name": name,
-        "image": image,
-      }),
-    );
+    final uri = Uri.parse("$_base/admin/communities/");
+    var request = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = "Bearer $token"
+      ..fields['field'] = fieldId.toString()
+      ..fields['name'] = name;
+
+    if (imagePath != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'image',
+          imagePath,
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+    }
+
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
 
     if (response.statusCode != 201) {
-      final decoded = utf8.decode(response.bodyBytes);
+      final decoded = utf8.decode(responseBody.runes.toList());
       try {
         final errorJson = jsonDecode(decoded);
-        throw Exception(errorJson['error'] ?? 'فشل إنشاء المجتمع');
+        throw CommunityException(errorJson['error'] ?? 'فشل إنشاء المجتمع');
       } catch (_) {
-        throw Exception("فشل إنشاء المجتمع: $decoded");
+        throw CommunityException("فشل إنشاء المجتمع: $decoded");
       }
     }
   }
@@ -158,34 +189,39 @@ class CommunityService {
       int communityId,
       int fieldId,
       String name,
-      String? image,
+      String? imagePath,
       ) async {
     final token = await SharedPrefs.getAccessToken();
     if (token == null || token.isEmpty) {
-      throw Exception("لا يوجد توكن (AccessToken) محفوظ.");
+      throw CommunityException("لا يوجد توكن (AccessToken) محفوظ.");
     }
 
-    final uri = Uri.parse("$_baseUrl/admin/communities/$communityId/");
-    final response = await http.put(
-      uri,
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
-      body: jsonEncode({
-        "field": fieldId,
-        "name": name,
-        "image": image,
-      }),
-    );
+    final uri = Uri.parse("$_base/admin/communities/$communityId/");
+    var request = http.MultipartRequest('PUT', uri)
+      ..headers['Authorization'] = "Bearer $token"
+      ..fields['field'] = fieldId.toString()
+      ..fields['name'] = name;
+
+    if (imagePath != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'image',
+          imagePath,
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+    }
+
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
 
     if (response.statusCode != 200) {
-      final decoded = utf8.decode(response.bodyBytes);
+      final decoded = utf8.decode(responseBody.runes.toList());
       try {
         final errorJson = jsonDecode(decoded);
-        throw Exception(errorJson['error'] ?? 'فشل تعديل المجتمع');
+        throw CommunityException(errorJson['error'] ?? 'فشل تعديل المجتمع');
       } catch (_) {
-        throw Exception("فشل تعديل المجتمع: $decoded");
+        throw CommunityException("فشل تعديل المجتمع: $decoded");
       }
     }
   }
@@ -194,10 +230,10 @@ class CommunityService {
   static Future<void> deleteCommunity(int communityId) async {
     final token = await SharedPrefs.getAccessToken();
     if (token == null || token.isEmpty) {
-      throw Exception("لا يوجد توكن (AccessToken) محفوظ.");
+      throw CommunityException("لا يوجد توكن (AccessToken) محفوظ.");
     }
 
-    final uri = Uri.parse("$_baseUrl/admin/communities/$communityId/");
+    final uri = Uri.parse("$_base/admin/communities/$communityId/");
     final response = await http.delete(
       uri,
       headers: {
@@ -210,27 +246,55 @@ class CommunityService {
       final decoded = utf8.decode(response.bodyBytes);
       try {
         final errorJson = jsonDecode(decoded);
-        throw Exception(errorJson['error'] ?? 'فشل حذف المجتمع');
+        throw CommunityException(errorJson['error'] ?? 'فشل حذف المجتمع');
       } catch (_) {
-        throw Exception("فشل حذف المجتمع: $decoded");
+        throw CommunityException("فشل حذف المجتمع: $decoded");
       }
     }
   }
+
+  /// جلب مجتمعات مستخدم معيّن
   static Future<List<CommunityModel>> fetchCommunitiesForUser(int userId) async {
     try {
       final token = await AuthService.getToken();
-      if (token == null) throw Exception('No authentication token');
-      final uri = Uri.parse("$_baseUrl/user-communities/for-user/$userId/");
+      if (token == null || token.isEmpty) throw CommunityException('No authentication token available');
+      final uri = Uri.parse("$_base/user-communities/for-user/$userId/");
       final response = await AuthHttp.get(uri);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((j) => CommunityModel.fromJson(j)).toList();
       } else {
-        throw Exception('Failed to fetch communities for user $userId: '
-            '${response.statusCode} ${response.body}');
+        throw CommunityException(
+          'Failed to fetch communities for user $userId: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
-      rethrow;
+      throw CommunityException('Error fetching communities for user: ${e.toString()}');
+    }
+  }
+
+  /// جلب جميع المجتمعات كأدمن
+  static Future<List<CommunityModel>> fetchAdminCommunities() async {
+    final token = await SharedPrefs.getAccessToken();
+    if (token == null || token.isEmpty) {
+      throw CommunityException('لا يوجد توكن متاح.');
+    }
+
+    final uri = Uri.parse("$_base/admin/communities/");
+    final response = await http.get(
+      uri,
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((json) => CommunityModel.fromJson(json)).toList();
+    } else {
+      final decoded = utf8.decode(response.bodyBytes);
+      throw CommunityException("فشل جلب المجتمعات: $decoded");
     }
   }
 }

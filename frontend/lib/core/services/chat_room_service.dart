@@ -2,16 +2,18 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:frontend/core/utils/shared_prefs.dart';
 import 'package:frontend/data/models/chat_room_model.dart';
+import '../utils/api_config.dart';
 
 class ChatRoomService {
   // استخدام مسار الأدمن لإنشاء غرف الدردشة
-  static const String _baseUrl = "http://10.0.2.2:8000/api/admin/chat-rooms";
-
+  static String get _adminBase => '${ApiConfig.baseUrl}/admin/chat-rooms';
+  //static const String _baseUrl = "http://192.168.1.5:8000/api/admin/chat-rooms";
+//http://192.168.1.5:8000
   static Future<void> createChatRoom(int communityId, String name, String type) async {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
-    final uri = Uri.parse("$_baseUrl/");
+    final uri = Uri.parse('$_adminBase/');
     final response = await http.post(
       uri,
       headers: {

@@ -6,19 +6,20 @@ import 'package:http/http.dart' as http;
 import 'package:frontend/core/services/auth_service.dart';
 import 'package:frontend/core/services/auth_http.dart';
 import 'package:frontend/data/models/thread_model.dart';
+import '../utils/api_config.dart';
 
 class ThreadService {
-  static const String baseUrl = "http://10.0.2.2:8000/api";
+  static String get _base => ApiConfig.baseUrl;
+  //static const String baseUrl = "http://192.168.1.5:8000/api";
+  //http://192.168.1.5:8000
 
   /// جلب قائمة الثريدات
   static Future<List<ThreadModel>> fetchThreads(
       int communityId, {
-        bool isJobOpportunity = false,
+        required String roomType, bool isJobOpportunity = false
       }) async {
-    final url = Uri.parse(
-      "$baseUrl/threads/?community_id=$communityId&is_job_opportunity=$isJobOpportunity",
-    );
-    final res = await AuthHttp.get(url);
+    final uri = Uri.parse('$_base/threads/?community_id=$communityId&room_type=$roomType&is_job_opportunity=$isJobOpportunity');
+    final res = await AuthHttp.get(uri);
     if (res.statusCode != 200) {
       throw Exception("خطأ في الخادم: ${res.statusCode}");
     }
@@ -28,8 +29,8 @@ class ThreadService {
 
   /// جلب ثريد واحد بالتفاصيل (مع الشجرة)
   static Future<ThreadModel> getThreadById(String threadId) async {
-    final url = Uri.parse("$baseUrl/threads/$threadId/");
-    final res = await AuthHttp.get(url);
+    final uri = Uri.parse("$_base/threads/$threadId/");
+    final res = await AuthHttp.get(uri);
     if (res.statusCode != 200) {
       throw Exception("فشل جلب الثريد");
     }
@@ -39,6 +40,7 @@ class ThreadService {
   /// إنشاء ثريد جديد (مع مرفق إن وجد)
   static Future<ThreadModel> createThread(
       int communityId,
+      roomType,
       String title,
       String details,
       String classification,
@@ -53,15 +55,15 @@ class ThreadService {
     if (token == null) throw Exception("No valid token found");
 
     // جلب chat_room المناسب
-    final crm = Uri.parse("$baseUrl/chat-rooms/?community_id=$communityId");
+    final crm = Uri.parse("$_base/chat-rooms/?community_id=$communityId&type=$roomType");//Ad
     final cr = await AuthHttp.get(crm);
     if (cr.statusCode != 200) throw Exception("فشل جلب ChatRoom");
     final rooms = json.decode(utf8.decode(cr.bodyBytes)) as List<dynamic>;
     if (rooms.isEmpty) throw Exception("لا توجد غرف متاحة لهذا المجتمع");
-    final roomId = rooms.first['id'];
+    final roomId = rooms.single['id'];//Ad
 
     // بناء الطلب متعدد الأجزاء
-    var req = http.MultipartRequest('POST', Uri.parse("$baseUrl/threads/"));
+    var req = http.MultipartRequest('POST', Uri.parse("$_base/threads/"));
     req.headers['Authorization'] = "Bearer $token";
     req.fields
       ..['chat_room'] = roomId.toString()
@@ -107,7 +109,7 @@ class ThreadService {
 
     if (file == null) {
       final res = await AuthHttp.post(
-        Uri.parse("$baseUrl/replies/"),
+        Uri.parse("$_base/replies/"),
         body: {
           "thread": threadId,
           "reply_text": replyText,
@@ -117,7 +119,7 @@ class ThreadService {
       if (res.statusCode == 401) {
         token = await AuthService.refreshAccessToken();
         await AuthHttp.post(
-          Uri.parse("$baseUrl/replies/"),
+          Uri.parse("$_base/replies/"),
           body: {
             "thread": threadId,
             "reply_text": replyText,
@@ -131,7 +133,7 @@ class ThreadService {
       return;
     }
 
-    var req = http.MultipartRequest('POST', Uri.parse("$baseUrl/replies/"));
+    var req = http.MultipartRequest('POST', Uri.parse("$_base/replies/"));
     req.headers['Authorization'] = "Bearer $token";
     req.fields
       ..['thread'] = threadId
@@ -154,9 +156,9 @@ class ThreadService {
 
   /// تبديل الإعجاب على الثريد
   static Future<void> toggleLike(String threadId) async {
-    final url = Uri.parse("$baseUrl/likes/");
+    final uri = Uri.parse("$_base/likes/");
     final res = await AuthHttp.post(
-      url,
+      uri,
       body: {"thread": threadId},
     );
     if (res.statusCode != 201 && res.statusCode != 204) {
@@ -166,9 +168,9 @@ class ThreadService {
 
   /// تبديل الإعجاب على ردّ
   static Future<void> toggleReplyLike(String replyId) async {
-    final url = Uri.parse("$baseUrl/likes/");
+    final uri = Uri.parse("$_base/likes/");
     final res = await AuthHttp.post(
-      url,
+      uri,
       body: {"reply": replyId},
     );
     if (res.statusCode != 201 && res.statusCode != 204) {

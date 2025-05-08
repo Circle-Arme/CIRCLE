@@ -1,23 +1,34 @@
+// lib/presentation/widgets/custom_drawer.dart
+//
+// Drawer مخصّص مع اختيار لغة داخل الدرج نفسه (ExpansionTile)
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // استيراد flutter_bloc
-import 'package:frontend/data/models/user_model.dart';
-import 'package:frontend/data/models/user_profile_model.dart';
-import 'package:frontend/core/services/auth_service.dart';
-import 'package:frontend/core/utils/shared_prefs.dart';
-import '../theme/app_colors.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:frontend/core/utils/shared_prefs.dart';
+import 'package:frontend/core/services/auth_service.dart';
+import 'package:frontend/data/models/user_profile_model.dart';
+
 import 'package:frontend/presentation/screens/profile/user_profile_page.dart';
 import 'package:frontend/presentation/screens/profile/organization_profile_page.dart';
 import 'package:frontend/presentation/screens/communities/my_communities_page.dart';
 import 'package:frontend/presentation/screens/admin/admin_dashboard_page.dart';
+import 'package:frontend/presentation/screens/admin/admin_summary_page.dart';
 import 'package:frontend/presentation/screens/home/fields_page.dart';
-import 'package:frontend/presentation/blocs/language/language_bloc.dart'; // استيراد LanguageBloc
-import 'package:frontend/presentation/blocs/language/language_event.dart'; // استيراد LanguageEvent
+import 'package:frontend/presentation/blocs/language/language_bloc.dart';
+import 'package:frontend/presentation/blocs/language/language_event.dart';
+import '../theme/app_colors.dart';
 
-class CustomDrawer extends StatelessWidget {
-  const CustomDrawer({Key? key}) : super(key: key); // إزالة معامل user
+class CustomDrawer extends StatefulWidget {
+  const CustomDrawer({Key? key}) : super(key: key);
 
+  @override
+  State<CustomDrawer> createState() => _CustomDrawerState();
+}
+
+class _CustomDrawerState extends State<CustomDrawer> {
   @override
   Widget build(BuildContext context) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
@@ -30,7 +41,7 @@ class CustomDrawer extends StatelessWidget {
           child: Column(
             children: [
               _buildHeader(context),
-              _buildMenuItems(context),
+              _buildMenu(context),
               _buildLogoutButton(context),
             ],
           ),
@@ -39,29 +50,31 @@ class CustomDrawer extends StatelessWidget {
     );
   }
 
+  /* ───────────────────────── Header ───────────────────────── */
   Widget _buildHeader(BuildContext context) {
     return FutureBuilder<UserProfileModel?>(
-      future: SharedPrefs.getUserProfile(), // جلب الملف التعريفي من SharedPrefs
-      builder: (context, snapshot) {
-        final profile = snapshot.data;
+      future: SharedPrefs.getUserProfile(),
+      builder: (ctx, snap) {
+        final profile = snap.data;
         return Container(
-          color: Colors.grey[200],
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          color: Colors.grey[200],
           child: Column(
             children: [
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
-                  icon: const Icon(Icons.close),
-                  color: AppColors.primaryColor,
-                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, color: AppColors.primaryColor),
+                  onPressed: () => Navigator.pop(context),
                 ),
               ),
               SizedBox(height: 10.h),
               CircleAvatar(
                 radius: 40,
-                backgroundImage: const AssetImage('assets/images/user.jpg'), // إزالة الاعتماد على user
                 backgroundColor: Colors.transparent,
+                backgroundImage: (profile?.avatarUrl ?? '').trim().isNotEmpty
+                    ? NetworkImage(profile!.avatarUrl!)
+                    : const AssetImage('assets/welcome.png') as ImageProvider,
               ),
               SizedBox(height: 10.h),
               Text(
@@ -79,72 +92,76 @@ class CustomDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItems(BuildContext context) {
+  /* ───────────────────────── Menu ───────────────────────── */
+  Widget _buildMenu(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
     return FutureBuilder<UserProfileModel?>(
       future: SharedPrefs.getUserProfile(),
-      builder: (context, snapshot) {
-        final profile = snapshot.data;
-        final userType = profile?.userType ?? 'normal'; // استخدام userType من UserProfileModel
+      builder: (_, snap) {
+        final profile = snap.data;
+        final userType = profile?.userType ?? 'normal';
 
         return Expanded(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(vertical: 30.h),
             child: Column(
               children: [
-                drawerItem(
-                  icon: Icons.person,
-                  title: loc.profile,
-                  context: context,
-                  onTap: () {
-                    if (profile != null) {
+                /*** ─── مستخدم عادي أو مؤسسة ─── */
+                if (userType != 'admin') ...[
+                  _item(
+                    ctx: context,
+                    icon: Icons.person,
+                    title: loc.profile,
+                    tap: () {
+                      if (profile != null) {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => userType == 'organization'
+                                ? OrganizationProfilePage(profile: profile)
+                                : ProfilePage(profile: profile),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  _item(
+                    ctx: context,
+                    icon: Icons.group,
+                    title: loc.myCommunities,
+                    tap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => userType == 'organization'
-                              ? OrganizationProfilePage(profile: profile)
-                              : ProfilePage(profile: profile),
+                          builder: (_) => const MyCommunitiesPage(),
                         ),
                       );
-                    }
-                  },
-                ),
-                drawerItem(
-                  icon: Icons.group,
-                  title: loc.myCommunities,
-                  context: context,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MyCommunitiesPage(),
-                      ),
-                    );
-                  },
-                ),
-                drawerItem(
-                  icon: Icons.home,
-                  title: loc.home,
-                  context: context,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const FieldsPage(),
-                      ),
-                    );
-                  },
-                ),
-                if (userType == 'admin') // خيار إداري
-                  drawerItem(
-                    icon: Icons.admin_panel_settings,
+                    },
+                  ),
+                  _item(
+                    ctx: context,
+                    icon: Icons.home,
+                    title: loc.home,
+                    tap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const FieldsPage()),
+                      );
+                    },
+                  ),
+                ],
+
+                /*** ─── خيارات المدير (Admin) ─── */
+                if (userType == 'admin') ...[
+                  _item(
+                    ctx: context,
+                    icon: Icons.dashboard,
                     title: loc.adminDashboard,
-                    context: context,
-                    onTap: () {
+                    tap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
@@ -154,13 +171,42 @@ class CustomDrawer extends StatelessWidget {
                       );
                     },
                   ),
-                drawerItem(
-                  icon: Icons.language,
-                  title: loc.language,
-                  context: context,
-                  onTap: () {
-                    _showLanguageDialog(context);
-                  },
+                  _item(
+                    ctx: context,
+                    icon: Icons.assessment,
+                    title: loc.summary,
+                    tap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminSummaryPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+
+                /*** ─── اختيار اللغة داخل الدرج ─── */
+                ExpansionTile(
+                  leading:
+                  const Icon(Icons.language, color: AppColors.primaryColor),
+                  title: Text(
+                    loc.language,
+                    style: const TextStyle(color: AppColors.primaryColor),
+                  ),
+                  childrenPadding:
+                  EdgeInsets.only(left: 24.w, bottom: 8.h, right: 24.w),
+                  children: [
+                    Wrap(
+                      spacing: 12.w,
+                      runSpacing: 8.h,
+                      children: [
+                        _langButton(context, 'English', const Locale('en')),
+                        _langButton(context, 'Arabic', const Locale('ar')),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -170,62 +216,35 @@ class CustomDrawer extends StatelessWidget {
     );
   }
 
-// باقي الكود (_showLanguageDialog, _buildLogoutButton, drawerItem) يبقى كما هو
-}
-
-  void _showLanguageDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-          content: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  // تغيير اللغة إلى الإنجليزية باستخدام LanguageBloc
-                  context.read<LanguageBloc>().add(ChangeLanguageEvent(const Locale('en')));
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-                ),
-                child: const Text(
-                  'English',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              SizedBox(width: 20.w),
-              ElevatedButton(
-                onPressed: () {
-                  // تغيير اللغة إلى العربية باستخدام LanguageBloc
-                  context.read<LanguageBloc>().add(ChangeLanguageEvent(const Locale('ar')));
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-                ),
-                child: const Text(
-                  'Arabic',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+  /* ───────────────────────── Helpers ───────────────────────── */
+  Widget _item({
+    required BuildContext ctx,
+    required IconData icon,
+    required String title,
+    required VoidCallback tap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: AppColors.primaryColor),
+      title: Text(title, style: const TextStyle(color: AppColors.primaryColor)),
+      onTap: tap,
     );
   }
 
+  Widget _langButton(BuildContext context, String label, Locale locale) {
+    return ElevatedButton(
+      onPressed: () {
+        context.read<LanguageBloc>().add(ChangeLanguageEvent(locale));
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primaryColor,
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+      ),
+      child: Text(label, style: const TextStyle(color: Colors.white)),
+    );
+  }
+
+  /* ───────────────────────── Logout ───────────────────────── */
   Widget _buildLogoutButton(BuildContext context) {
     return Container(
       color: AppColors.primaryColor,
@@ -236,7 +255,8 @@ class CustomDrawer extends StatelessWidget {
             context: context,
             builder: (context) => AlertDialog(
               title: Text(AppLocalizations.of(context)!.logoutConfirmationTitle),
-              content: Text(AppLocalizations.of(context)!.logoutConfirmationMessage),
+              content:
+              Text(AppLocalizations.of(context)!.logoutConfirmationMessage),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
@@ -269,16 +289,4 @@ class CustomDrawer extends StatelessWidget {
       ),
     );
   }
-
-  Widget drawerItem({
-    required IconData icon,
-    required String title,
-    required BuildContext context,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: AppColors.primaryColor),
-      title: Text(title, style: const TextStyle(color: AppColors.primaryColor)),
-      onTap: onTap,
-    );
-  }
+}

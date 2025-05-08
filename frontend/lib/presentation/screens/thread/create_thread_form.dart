@@ -10,12 +10,14 @@ import '../../theme/app_colors.dart';
 
 class CreateThreadForm extends StatefulWidget {
   final int communityId;
+  final String roomType;
   final bool isJobOpportunity;
   final ThreadBloc threadBloc;
 
   const CreateThreadForm({
     Key? key,
     required this.communityId,
+    required this.roomType,
     this.isJobOpportunity = false,
     required this.threadBloc,
   }) : super(key: key);
@@ -65,6 +67,7 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
       widget.threadBloc.add(
         CreateThreadEvent(
           widget.communityId,
+          widget.roomType,
           _titleController.text.trim(),
           _contentController.text.trim(),
           _classification,

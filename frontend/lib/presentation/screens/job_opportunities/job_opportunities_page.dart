@@ -33,10 +33,11 @@ class _JobOpportunitiesPageState extends State<JobOpportunitiesPage> {
   @override
   void initState() {
     super.initState();
-    _threadsFuture = ThreadService.fetchThreads(widget.communityId, isJobOpportunity: true);
+    _threadsFuture = ThreadService.fetchThreads(widget.communityId, roomType: 'job_opportunities', isJobOpportunity: true);
     _userTypeFuture = AuthService.getUserType();
     context.read<ThreadBloc>().add(FetchThreadsEvent(
       widget.communityId,
+      'job_opportunities',
       isJobOpportunity: true,
     ));
   }
@@ -44,6 +45,7 @@ class _JobOpportunitiesPageState extends State<JobOpportunitiesPage> {
   Future<void> _refreshThreads() async {
     context.read<ThreadBloc>().add(FetchThreadsEvent(
       widget.communityId,
+      'job_opportunities',
       isJobOpportunity: true,
     ));
   }
@@ -75,6 +77,7 @@ class _JobOpportunitiesPageState extends State<JobOpportunitiesPage> {
       MaterialPageRoute(
         builder: (_) => CreateThreadForm(
           communityId: widget.communityId,
+          roomType: 'job_opportunities',
           isJobOpportunity: true,
           threadBloc: context.read<ThreadBloc>(),
         ),

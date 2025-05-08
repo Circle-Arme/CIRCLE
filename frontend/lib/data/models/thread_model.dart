@@ -52,6 +52,9 @@ class ReplyModel {
 
 ///────────────────────────────────────────
 /// الموديل الشجري للردود (ApiReply)
+
+// api_reply.dart
+
 class ApiReply {
   final String id;
   final String text;
@@ -59,10 +62,13 @@ class ApiReply {
   final String creatorName;
   final String creatorId;
   final String? file;
-  final int likesCount;      // ← جديد: عدّاد الإعجابات
-  final bool isPromoted;     // ← جديد: حالة الترويج
-  final List<ApiReply> children;
+  final int likesCount;
+  final bool isPromoted;
   final bool isLiked;
+  final List<ApiReply> children;
+
+  /// مقتطف من الردّ الأب (إن وُجد)
+  final ParentSnippet? parentSnippet;
 
   ApiReply({
     required this.id,
@@ -73,37 +79,90 @@ class ApiReply {
     this.file,
     required this.likesCount,
     required this.isPromoted,
-    this.children = const [],
     required this.isLiked,
+    this.children = const [],
+    this.parentSnippet,
   });
 
-  factory ApiReply.fromJson(Map<String, dynamic> json) => ApiReply(
-    id: json['id'].toString(),
-    text: json['reply_text'] as String? ?? '',
-    createdAt: DateTime.parse(json['created_at']),
-    creatorName: json['creator_name'] as String? ?? 'مجهول',
-    creatorId: json['created_by']?.toString() ?? '',
-    file: json['file'] as String?,
-    likesCount: json['likes_count'] as int? ?? 0,
-    isPromoted: json['is_promoted'] as bool? ?? false,
-    isLiked:    json['liked_by_me'] as bool? ?? false,
-    children: (json['children'] as List<dynamic>? ?? [])
+  factory ApiReply.fromJson(Map<String, dynamic> json) {
+    // أولًا: الأطفال
+    final kids = (json['children'] as List<dynamic>? ?? [])
         .map((c) => ApiReply.fromJson(c as Map<String, dynamic>))
-        .toList(),
-  );
+        .toList();
+
+    // ثم مقتطف الأبّ، إذا وُجد
+    ParentSnippet? snippet;
+    if (json['parent_snippet'] != null) {
+      snippet = ParentSnippet.fromJson(
+          json['parent_snippet'] as Map<String, dynamic>);
+    }
+
+    return ApiReply(
+      id:            json['id'].toString(),
+      text:          json['reply_text'] as String? ?? '',
+      createdAt:     DateTime.parse(json['created_at'] as String),
+      creatorName:   json['creator_name'] as String? ?? 'مجهول',
+      creatorId:     json['created_by']?.toString() ?? '',
+      file:          json['file'] as String?,
+      likesCount:    json['likes_count'] as int? ?? 0,
+      isPromoted:    json['is_promoted'] as bool? ?? false,
+      isLiked:       json['liked_by_me'] as bool? ?? false,
+      children:      kids,
+      parentSnippet: snippet,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'reply_text': text,
-    'created_at': createdAt.toIso8601String(),
-    'creator_name': creatorName,
-    'created_by': creatorId,
-    'file': file,
-    'likes_count': likesCount,
-    'is_promoted': isPromoted,
-    'children': children.map((c) => c.toJson()).toList(),
+    'id':             id,
+    'reply_text':     text,
+    'created_at':     createdAt.toIso8601String(),
+    'creator_name':   creatorName,
+    'created_by':     creatorId,
+    'file':           file,
+    'likes_count':    likesCount,
+    'is_promoted':    isPromoted,
+    'liked_by_me':    isLiked,
+    'children':       children.map((c) => c.toJson()).toList(),
+    'parent_snippet': parentSnippet?.toJson(),
   };
 }
+
+/// مقتطف مُختصر من الردّ الأب لعرضه داخل فقاعة الاقتباس
+class ParentSnippet {
+  final String id;
+  final String text;
+  final String creatorName;
+  final String creatorId;
+  final String? file;
+
+  ParentSnippet({
+    required this.id,
+    required this.text,
+    required this.creatorName,
+    required this.creatorId,
+    this.file,
+  });
+
+  factory ParentSnippet.fromJson(Map<String, dynamic> json) {
+    return ParentSnippet(
+      id:          json['id'].toString(),
+      text:        json['text'] as String? ?? '',
+      creatorName: json['creator_name'] as String? ?? 'مجهول',
+      creatorId:   json['creator_id']?.toString() ?? '',
+      file:        json['file'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id':            id,
+    'text':          text,
+    'creator_name':  creatorName,
+    'creator_id':    creatorId,
+    'file':          file,
+  };
+}
+
+
 
 ///────────────────────────────────────────
 /// الموديل الرئيسي للثريد (ThreadModel)

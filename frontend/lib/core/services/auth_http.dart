@@ -6,7 +6,7 @@ import 'package:frontend/core/services/auth_service.dart';
 
 class AuthHttp {
   /// GET مع هيدر Authorization وإعادة محاولة عند 401
-  static Future<http.Response> get(Uri url) async {
+  static Future<http.Response> get(Uri url, {Map<String, String>? headers}) async {
     String? token = await AuthService.getToken();
     if (token == null) throw Exception("🔐 لا يوجد توكن.");
 
@@ -29,6 +29,7 @@ class AuthHttp {
     }
 
     return response;
+
   }
 
   /// POST مع Content-Type: application/json

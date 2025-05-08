@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../exceptions/auth_exception.dart';
 import '../utils/shared_prefs.dart';
 import 'package:frontend/data/models/user_profile_model.dart';
+import '../utils/api_config.dart';
 
 class LoggedUser {
   final String token;
@@ -21,13 +22,15 @@ class LoggedUser {
 }
 
 class AuthService {
-  static const String _baseUrl = "http://192.168.1.5:8000/api/accounts";
-
+  static String get _accountsBase => '${ApiConfig.baseUrl}/accounts';
+  //static const String _baseUrl = "http://192.168.1.5:8000/api/accounts";
+  //http://192.168.1.5:8000
   /// تسجيل الدخول
   static Future<LoggedUser> login(String email, String password) async {
+    final uri = Uri.parse('$_accountsBase/login/');
     try {
       final response = await http.post(
-        Uri.parse("$_baseUrl/login/"),
+        uri,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"email": email, "password": password}),
       );
@@ -54,7 +57,9 @@ class AuthService {
         print('Access Token: $access');
 
         final communityResponse = await http.get(
-          Uri.parse("http://10.0.2.2:8000/api/user-communities/"),
+          //Uri.parse("http://10.0.2.2:8000/api/user-communities/"),
+          Uri.parse("http://192.168.1.5:8000/api/user-communities/"),
+          //http://192.168.1.5:8000
           headers: {
             "Authorization": "Bearer $access",
             "Content-Type": "application/json",
@@ -91,9 +96,10 @@ class AuthService {
 
   /// التسجيل
   static Future<LoggedUser> register(String fullName, String email, String password) async {
+    final uri = Uri.parse('$_accountsBase/register/');
     try {
       final response = await http.post(
-        Uri.parse("$_baseUrl/register/"),
+        uri,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "full_name": fullName,
@@ -115,11 +121,12 @@ class AuthService {
     }
   }
   static Future<void> changePassword(String oldPassword, String newPassword) async {
+    final uri = Uri.parse('$_accountsBase/change-password/');
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
     final response = await http.post(
-      Uri.parse("$_baseUrl/change-password/"),
+      uri,
       headers: {
         "Authorization": "Bearer $token",
         "Content-Type": "application/json",
@@ -163,7 +170,9 @@ class AuthService {
       }
 
       final response = await http.post(
-        Uri.parse("http://10.0.2.2:8000/api/token/refresh/"),
+          Uri.parse('${ApiConfig.baseUrl}/token/refresh/'),
+        //http://192.168.1.5:8000
+        //Uri.parse("http://192.168.1.5:8000/api/token/refresh/"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"refresh": refresh}),
       );

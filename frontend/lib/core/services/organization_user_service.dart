@@ -2,20 +2,25 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:frontend/core/utils/shared_prefs.dart';
 import 'package:frontend/data/models/user_profile_model.dart';
+import '../utils/api_config.dart';
 
 class OrganizationUserService {
   // لتعديل بيانات منظمة نستخدم endpoint خاص بالأدمن
-  static const String _fetchBaseUrl = "http://10.0.2.2:8000/api/accounts/admin/org-users";
-  static const String _createBaseUrl = "http://10.0.2.2:8000/api/accounts/admin/create-org-user";
-  static const String _updateBaseUrl = "http://10.0.2.2:8000/api/accounts/admin/update-org-user";
-  static const String _deleteBaseUrl = "http://10.0.2.2:8000/api/accounts/admin/delete-org-user";
-
+  static String get _fetchBase  => '${ApiConfig.baseUrl}/accounts/admin/org-users';
+  static String get _createBase => '${ApiConfig.baseUrl}/accounts/admin/create-org-user';
+  static String get _updateBase => '${ApiConfig.baseUrl}/accounts/admin/update-org-user';
+  static String get _deleteBase => '${ApiConfig.baseUrl}/accounts/admin/delete-org-user';
+  //http://192.168.1.5:8000
+  //static const String _fetchBaseUrl = "http://192.168.1.5:8000/api/accounts/admin/org-users";
+  //static const String _createBaseUrl = "http://192.168.1.5:8000/api/accounts/admin/create-org-user";
+  //static const String _updateBaseUrl = "http://192.168.1.5:8000/api/accounts/admin/update-org-user";
+  //static const String _deleteBaseUrl = "http://192.168.1.5:8000/api/accounts/admin/delete-org-user";
   // 🔹 جلب مستخدمي المنظمات
   static Future<List<UserProfileModel>> fetchOrganizationUsers() async {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
-    final uri = Uri.parse("$_fetchBaseUrl/");
+    final uri   = Uri.parse('$_fetchBase/');
     final response = await http.get(
       uri,
       headers: {
@@ -43,7 +48,7 @@ class OrganizationUserService {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
-    final uri = Uri.parse("$_createBaseUrl/");
+    final uri   = Uri.parse('$_createBase/');
     final response = await http.post(
       uri,
       headers: {
@@ -55,6 +60,7 @@ class OrganizationUserService {
         "work_education": profile.workEducation,
         "position": profile.position,
         "description": profile.description,
+        "website"     : profile.website,
         "email": profile.email,
         "password": password,
         "user_type": "organization",
@@ -79,7 +85,7 @@ class OrganizationUserService {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
-    final uri = Uri.parse("$_updateBaseUrl/$userId/");
+    final uri = Uri.parse('$_updateBase/$userId/');
     final response = await http.patch(
       uri,
       headers: {
@@ -91,6 +97,7 @@ class OrganizationUserService {
         "work_education": profile.workEducation,
         "position": profile.position,
         "description": profile.description,
+        "website"        : profile.website,
         "email": profile.email,
         "user_type": "organization",
       }),
@@ -114,7 +121,7 @@ class OrganizationUserService {
     final token = await SharedPrefs.getAccessToken();
     if (token == null) throw Exception("التوكن غير متوفر");
 
-    final uri = Uri.parse("$_deleteBaseUrl/$userId/");
+    final uri = Uri.parse('$_deleteBase/$userId/');
     final response = await http.delete(
       uri,
       headers: {
@@ -135,4 +142,21 @@ class OrganizationUserService {
       }
     }
   }
+
+  /// جلب بروفايل مستخدم مؤسسة (يُستدعى في _loadLatestProfile)
+  static Future<UserProfileModel> fetchUserProfileById(String id) async {
+    final token = await SharedPrefs.getAccessToken();
+    final uri   = Uri.parse("http://10.0.2.2:8000/api/accounts/profile/$id/");
+    //final uri   = Uri.parse("http://192.168.1.5:8000/api/accounts/profile/$id/");
+    //http://192.168.1.5:8000
+    final resp  = await http.get(uri, headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type" : "application/json"
+    });
+    if (resp.statusCode == 200) {
+      return UserProfileModel.fromJson(jsonDecode(resp.body));
+    }
+    throw Exception("فشل تحميل البروفايل: ${resp.statusCode} ${resp.body}");
+  }
+
 }

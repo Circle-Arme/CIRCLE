@@ -24,7 +24,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
   bool _obscurePassword = true;
 
   static const Color primaryTeal = Color(0xFF2A6776);
-  static const Color headerBackground = Color(0xFFDCE3D7);
+  static const Color headerBackground = Color(0xFFE0E0E0);
 
   void _submitRegistration() {
     if (_formKey.currentState!.validate()) {
