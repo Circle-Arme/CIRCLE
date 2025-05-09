@@ -1,5 +1,6 @@
 # accounts/permissions.py
 from rest_framework.permissions import BasePermission
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
 class IsAdminUser(BasePermission):
@@ -95,3 +96,17 @@ class IsCommunityMember(BasePermission):
         from fields.models import UserCommunity
         return UserCommunity.objects.filter(user=request.user,
                                             community=community).exists()
+    
+class IsOwnerOrReadOnly(BasePermission):
+    """
+    يسمح ببقية العمليات (GET) للجميع، 
+    ولكن يحرّم PUT/PATCH/DELETE إلا على مالك الثريد.
+    """
+    message = "فقط صاحب الثريد يمكنه تعديل أو حذف هذا المحتوى."
+
+    def has_object_permission(self, request, view, obj):
+        # السماح بقراءة الثريد لأي عضو في المجتمع:
+        if request.method in SAFE_METHODS:
+            return True
+        # تعديل/حذف مسموح فقط لمنشئ الثريد:
+        return obj.created_by == request.user

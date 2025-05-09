@@ -85,11 +85,13 @@ class ThreadSerializer(serializers.ModelSerializer):
     likes_count    = serializers.SerializerMethodField()
     liked_by_me    = serializers.SerializerMethodField()
     creator_name   = serializers.SerializerMethodField()
+    creator_id     = serializers.IntegerField(source="created_by.id", read_only=True)
+
 
     class Meta:
         model  = Thread
         fields = [
-            "id", "chat_room", "title", "details", "created_by", "creator_name",
+            "id", "chat_room", "title", "details", "created_by", "creator_name", "creator_id",
             "file_attachment", "created_at",
             "replies", "replies_tree",
             "replies_count", "likes_count", "liked_by_me",

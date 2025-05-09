@@ -11,6 +11,7 @@ from rest_framework.permissions import BasePermission
 from utils.chat import allowed_types
 from rest_framework.exceptions import PermissionDenied
 from accounts.permissions import IsCommunityMember      # جديد
+from accounts.permissions import IsCommunityMember, IsOwnerOrReadOnly
 
 
 # ─────────────────────────── ChatRoom ───────────────────────────
@@ -73,14 +74,14 @@ class ChatRoomViewSet(viewsets.ReadOnlyModelViewSet,     # لا نحتاج updat
 # ─────────────────────────── Thread ────────────────────────────
 class ThreadViewSet(viewsets.ModelViewSet):
     serializer_class   = ThreadSerializer
-    permission_classes = [IsAuthenticated, IsCommunityMember]
+    permission_classes = [IsAuthenticated, IsCommunityMember, IsOwnerOrReadOnly]
 
     def get_queryset(self):
         qs = (Thread.objects
               .select_related("chat_room__community", "created_by")
               .prefetch_related("stars"))
         #   السماح لعملية retrieve بدون community_id
-        if self.action == "retrieve":
+        if self.action not in ("list", "create"):
             return qs
 
         # إلزام community_id
@@ -120,6 +121,14 @@ class ThreadViewSet(viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
         serializer.save(created_by=self.request.user)
+        
+    def perform_update(self, serializer):
+        thread = self.get_object()
+        # إذا حاول المستخدم تغيير الـchat_room:
+        if "chat_room" in serializer.validated_data and \
+           serializer.validated_data["chat_room"] != thread.chat_room:
+            raise ValidationError("لا يمكنك نقل الثريد إلى غرفة أخرى.")
+        serializer.save()
 
 
 # ─────────────────────────── Reply ─────────────────────────────
