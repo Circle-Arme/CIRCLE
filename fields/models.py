@@ -37,6 +37,7 @@ class UserCommunity(models.Model):
         ('beginner', 'Beginner'),
         ('advanced', 'Advanced'),
         ('both', 'Both'),
+        ('job_only','Job Only'),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_communities")

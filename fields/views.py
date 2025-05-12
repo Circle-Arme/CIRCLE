@@ -61,6 +61,11 @@ class UserCommunityViewSet(viewsets.ModelViewSet):
         if UserCommunity.objects.filter(user=user, community=community).exists():
             return Response({"detail": "أنت بالفعل عضو في هذا المجتمع!"},
                             status=status.HTTP_400_BAD_REQUEST)
+        
+        if hasattr(user, 'user_type') and user.user_type == 'organization':
+            level = 'job_only'
+        else:
+            level = request.data.get('level', 'beginner')
 
         level = request.data.get("level", "beginner")
         if level not in dict(UserCommunity.LEVEL_CHOICES):
@@ -164,3 +169,23 @@ class UserCommunityViewSet(viewsets.ModelViewSet):
         uc.save(update_fields=["level"])
         return Response({"detail": "تم تحديث المستوى.", "level": uc.level})
 
+@action(detail=False,
+        methods=['get'],
+        permission_classes=[IsAuthenticated],
+        url_path='level')
+def get_level(self, request):
+    """
+    GET /api/user-communities/level/?community_id=<id>
+    ترجع {'level': 'beginner'|'advanced'|'both'|'job_only'}
+    """
+    community_id = request.query_params.get('community_id')
+    if not community_id:
+        return Response({'detail': 'community_id is required.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    uc = get_object_or_404(
+        UserCommunity,
+        user=request.user,
+        community_id=community_id
+    )
+    return Response({'level': uc.level})

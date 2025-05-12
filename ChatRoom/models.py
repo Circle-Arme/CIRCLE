@@ -91,6 +91,12 @@ class Thread(models.Model):
 
     def __str__(self) -> str:        # pragma: no cover
         return f"Thread: {self.title}"
+    #مراجعة
+    def delete(self, *args, **kwargs):
+        # لو هناك ملف مرفق، نحذفه أولًا
+        if self.file_attachment:
+            self.file_attachment.delete(save=False)
+        super().delete(*args, **kwargs)
 
 
 class Reply(models.Model):

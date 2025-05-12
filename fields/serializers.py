@@ -7,12 +7,22 @@ class FieldSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CommunitySerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(read_only=True)  # 🔹 لإرجاع رابط الصورة
+    image = serializers.ImageField(required=False, allow_null=True)
     level = serializers.SerializerMethodField()
 
     class Meta:
         model = Community
         fields = '__all__'
+    
+    def validate_name(self, value):
+        if Community.objects.filter(name=value).exists():
+            raise serializers.ValidationError("اسم المجتمع موجود بالفعل.")
+        return value
+    
+    def validate_field(self, value):
+        if not Field.objects.filter(id=value.id).exists():
+            raise serializers.ValidationError("المجال غير موجود.")
+        return value
 
     def get_level(self, obj):
         user = self.context['request'].user
