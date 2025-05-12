@@ -98,9 +98,9 @@ WSGI_APPLICATION = 'CIRCLE.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': '',  # اسم قاعدة البيانات
-        'USER': '',  # اسم المستخدم
-        'PASSWORD': '',  # كلمة المرور الصحيحة
+        'NAME': 'quickstart',  # اسم قاعدة البيانات
+        'USER': 'root',  # اسم المستخدم
+        'PASSWORD': 'Elolo2238~',  # كلمة المرور الصحيحة
         'HOST': 'localhost',
         'PORT': '3306',
     }
