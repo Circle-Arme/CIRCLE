@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #!/usr/bin/env python3
+=======
+#!/usr/bin/env python
+>>>>>>> 78439836091054e64c7c509bc55485550c515c0d
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
@@ -6,7 +10,11 @@ import sys
 
 def main():
     """Run administrative tasks."""
+<<<<<<< HEAD
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CIRCLE.settings')
+=======
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CIRCLE.settings') #هنا غيرت الاسم من circle ل CIRCLE
+>>>>>>> 78439836091054e64c7c509bc55485550c515c0d
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
