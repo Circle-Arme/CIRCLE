@@ -1,4 +1,5 @@
 # accounts/views.py
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import (
     api_view,
@@ -74,6 +75,7 @@ def register_api(request):
 def protected_view(request):
     return Response({'message': f'مرحبًا {request.user.email}, هذه صفحة محمية!'})
 
+
 # ------------------------------------------------------------------
 # 2) بروفايل المستخدم الحالي
 # ------------------------------------------------------------------
@@ -129,3 +131,30 @@ def upload_avatar(request):
     return Response({
         'avatar': request.build_absolute_uri(profile.avatar.url)
     })
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """
+    POST /api/accounts/change-password/
+    Body: { old_password, new_password }
+    """
+    user = request.user
+    old = request.data.get('old_password')
+    new = request.data.get('new_password')
+
+    if not old or not new:
+        return Response(
+            {'error': 'يجب إرسال old_password و new_password'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not user.check_password(old):
+        return Response(
+            {'error': 'كلمة المرور القديمة غير صحيحة'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user.set_password(new)
+    user.save()
+    return Response({'message': 'تم تغيير كلمة المرور بنجاح'})

@@ -4,6 +4,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
+    change_password,
     login_api,
     register_api,
     protected_view,
@@ -37,6 +38,11 @@ urlpatterns = [
         'api/accounts/profile/upload-avatar/',
         upload_avatar,
         name='upload-avatar'
+    ),
+    path(
+      'api/accounts/change-password/',
+      change_password,
+      name='change-password'
     ),
 
     # إدارة مستخدمي المؤسسات (Admin only)

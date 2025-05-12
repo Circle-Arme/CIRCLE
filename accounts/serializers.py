@@ -19,7 +19,7 @@ class UserSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     id          = serializers.IntegerField(read_only=True)
     user        = serializers.PrimaryKeyRelatedField(read_only=True)
-    communities = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    communities = serializers.SlugRelatedField(many=True, read_only=True, slug_field='name')
 
     class Meta:
         model  = UserProfile
