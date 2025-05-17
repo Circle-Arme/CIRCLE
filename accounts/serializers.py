@@ -49,6 +49,11 @@ class OrgUserCreateSerializer(serializers.Serializer):
     description    = serializers.CharField(allow_blank=True, required=False)
     website        = serializers.URLField(allow_blank=True, required=False)
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("هذا البريد مستخدم مسبقًا.")
+        return value
+
     def create(self, validated_data):
         full_name = validated_data.pop('name').strip()
         parts     = full_name.split(' ', 1)
