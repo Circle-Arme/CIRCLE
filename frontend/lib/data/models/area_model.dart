@@ -1,3 +1,5 @@
+import '../../core/utils/api_config.dart';
+
 class AreaModel {
   final int id;
   final String title;
@@ -12,11 +14,15 @@ class AreaModel {
   });
 
   factory AreaModel.fromJson(Map<String, dynamic> json) {
+    String? imageUrl = json['image'] as String?;
+    if (imageUrl != null && !imageUrl.startsWith('http')) {
+      imageUrl = '${ApiConfig.baseUrl}$imageUrl';
+    }
     return AreaModel(
       id: json['id'] ?? 0,
       title: json['name'] ?? '',
       subtitle: json['description'] ?? '',
-      image: json['image'],
+      image: imageUrl,
     );
   }
 

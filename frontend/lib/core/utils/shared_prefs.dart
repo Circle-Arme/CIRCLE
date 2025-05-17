@@ -162,7 +162,6 @@ class SharedPrefs {
     final prefs = await SharedPrefs.prefs();
     return prefs.getString('community_level_$communityId');
   }
-
   static Future<void> removeCommunityLevel(int communityId) async {
     final prefs = await SharedPrefs.prefs();
     await prefs.remove('community_level_$communityId');

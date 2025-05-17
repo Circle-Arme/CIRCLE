@@ -368,7 +368,9 @@ class _LoginPageState extends State<LoginPage> {
     final langBtn = TextButton(
       onPressed: _toggleLanguage,
       child: Text(
-        Localizations.localeOf(context).languageCode == 'ar'
+        Localizations
+            .localeOf(context)
+            .languageCode == 'ar'
             ? 'English'
             : 'العربية',
         style: TextStyle(fontSize: 16.sp),

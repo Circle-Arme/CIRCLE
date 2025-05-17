@@ -33,6 +33,10 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  final TextEditingController _jobLinkController = TextEditingController();
+  final List<String> _jobTypeOptions = ['Full-time', 'Part-time', 'Remote'];
+  String _jobType = 'Full-time';
+  String _jobLinkType = 'direct';
   PlatformFile? _selectedFile;
 
   String? jobType;
@@ -44,6 +48,7 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
     _titleController.dispose();
     _tagsController.dispose();
     _contentController.dispose();
+    _jobLinkController.dispose();
     super.dispose();
   }
 
@@ -74,9 +79,11 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
           tags,
           file: _selectedFile,
           isJobOpportunity: widget.isJobOpportunity,
-          jobType: widget.isJobOpportunity ? jobType : null,
+          jobType: widget.isJobOpportunity ? _jobType : null,
           location: widget.isJobOpportunity ? location : null,
           salary: widget.isJobOpportunity ? salary : null,
+          jobLink: widget.isJobOpportunity ? _jobLinkController.text.trim() : null,
+          jobLinkType: widget.isJobOpportunity ? _jobLinkType : null,
         ),
       );
     }
@@ -90,7 +97,7 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
       bloc: widget.threadBloc,
       listener: (context, state) {
         if (state is ThreadLoaded) {
-          Navigator.pop(context);
+          //Navigator.pop(context, true);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(loc.threadCreatedSuccessfully)),
           );
@@ -159,6 +166,7 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
                       labelText: loc.topicTitle,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
+                        borderSide: const BorderSide(color: AppColors.borderColor),
                       ),
                     ),
                     validator: (value) {
@@ -175,6 +183,7 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
                       labelText: loc.tagsHint,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
+                        borderSide: const BorderSide(color: AppColors.borderColor),
                       ),
                     ),
                   ),
@@ -186,6 +195,7 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
                       alignLabelWithHint: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
+                        borderSide: const BorderSide(color: AppColors.borderColor),
                       ),
                     ),
                     maxLines: 6,
@@ -198,16 +208,29 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
                   ),
                   SizedBox(height: 16.h),
                   if (widget.isJobOpportunity) ...[
-                    TextFormField(
+                    DropdownButtonFormField<String>(
+                      value: _jobType,
+                      items: _jobTypeOptions.map((opt) {
+                        return DropdownMenuItem(
+                          value: opt,
+                          child: Text(
+                            opt == 'Full-time'
+                                ? loc.fullTime
+                                : opt == 'Part-time'
+                                ? loc.partTime
+                                : loc.remote,
+                          ),
+                        );
+                      }).toList(),
                       decoration: InputDecoration(
                         labelText: loc.jobType,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.r),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r),
+                        borderSide: const BorderSide(color: AppColors.borderColor),
                         ),
+
                       ),
-                      onChanged: (val) {
-                        jobType = val;
-                      },
+                      onChanged: (val) => setState(() => _jobType = val!),
+                      validator: (_) => null, // ليس مطلوبًا
                     ),
                     SizedBox(height: 16.h),
                     TextFormField(
@@ -215,6 +238,7 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
                         labelText: loc.location,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12.r),
+                          borderSide: const BorderSide(color: AppColors.borderColor),
                         ),
                       ),
                       onChanged: (val) {
@@ -227,6 +251,7 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
                         labelText: loc.salary,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12.r),
+                          borderSide: const BorderSide(color: AppColors.borderColor),
                         ),
                       ),
                       onChanged: (val) {
@@ -234,12 +259,66 @@ class _CreateThreadFormState extends State<CreateThreadForm> {
                       },
                     ),
                     SizedBox(height: 16.h),
+                    TextFormField(
+                      controller: _jobLinkController,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: loc.jobLink,
+                        hintText: 'https://example.com/job/123',
+                        prefixIcon: const Icon(Icons.link),
+                        //helperText: loc.jobLinkType, // مثلاً: "انسخ رابط التقديم المباشر أو صفحة الوظيفة"
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                          borderSide: const BorderSide(color: AppColors.borderColor),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return loc.enterJobLink;        // "الرجاء إدخال رابط التقديم"
+                        }
+                        final urlPattern = r'^(https?:\/\/)'      // بروتوكول إجباري
+                            r'([-\w]+\.)+[\w]{2,}'                // دومين
+                            r'(\/[-\w@:%_\+.~#?&//=]*)?$';        // مسار اختياري
+                        if (!RegExp(urlPattern).hasMatch(value.trim())) {
+                          return loc.invalidJobLink;               // "الرجاء إدخال رابط صحيح"
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 16.h),
+
+// —— اختيار نوع الرابط باستخدام DropdownButtonFormField ——
+                    DropdownButtonFormField<String>(
+                      value: _jobLinkType,
+                      decoration: InputDecoration(
+                        labelText: loc.jobLinkType,               // تأكد من وجود هذا المفتاح في الترجمة: "نوع الرابط"
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                          borderSide: const BorderSide(color: AppColors.borderColor),
+                        ),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'direct',
+                          child: Text(loc.directApplyLink),   // "رابط تقديم مباشر"
+                        ),
+                        DropdownMenuItem(
+                          value: 'external',
+                          child: Text(loc.externalJobPage),   // "صفحة الوظيفة الخارجية"
+                        ),
+                      ],
+                      onChanged: (val) => setState(() => _jobLinkType = val!),
+                    ),
+                    SizedBox(height: 16.h),
                   ],
                   ElevatedButton.icon(
                     onPressed: _pickFile,
-                    icon: const Icon(Icons.attach_file),
-                    label: Text(_selectedFile != null ? _selectedFile!.name : loc.attachFile),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade300),
+                    icon: const Icon(Icons.attach_file, color: Colors.white),
+                    label: Text(_selectedFile != null ? _selectedFile!.name : loc.attachFile, style: const TextStyle(color: Colors.white),),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryColor,
+                      shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),),
                   ),
                   SizedBox(height: 24.h),
                   BlocBuilder<ThreadBloc, ThreadState>(

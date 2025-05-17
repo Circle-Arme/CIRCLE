@@ -1,183 +1,275 @@
-// lib/presentation/tabs/field_tab.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:image_picker/image_picker.dart';
 
+
 import 'package:frontend/core/services/field_service.dart';
 import 'package:frontend/data/models/area_model.dart';
+import 'package:frontend/presentation/widgets/search_bar_widget.dart';
+
+import '../../../blocs/field/field_bloc.dart';
+import '../../../blocs/field/field_event.dart';
+import '../../../blocs/field/field_state.dart';
+import 'community_tab.dart';
 import 'create_edit_dialog.dart';
 import 'delete_confirmation.dart';
 
-class FieldTab extends StatefulWidget {
+
+class FieldTab extends StatelessWidget {
   const FieldTab({Key? key}) : super(key: key);
 
   @override
-  State<FieldTab> createState() => _FieldTabState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => FieldBloc(FieldService())..add(FetchFields()),
+      child: const _FieldTabContent(),
+    );
+  }
 }
 
-class _FieldTabState extends State<FieldTab> {
-  List<AreaModel> _fields = [];
-  bool _loading = false;
+class _FieldTabContent extends StatefulWidget {
+  const _FieldTabContent();
 
   @override
-  void initState() {
-    super.initState();
-    _loadFields();
-  }
+  State<_FieldTabContent> createState() => _FieldTabContentState();
+}
 
-  Future<void> _loadFields() async {
-    setState(() => _loading = true);
-    try {
-      _fields = await FieldService.fetchFields();
-    } catch (e) {
-      final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${loc.fetchError}: $e')),
-      );
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
+class _FieldTabContentState extends State<_FieldTabContent> {
+  String _searchQuery = '';
 
-  /* ───────── إنشاء / تعديل مجال ───────── */
-  Future<void> _openCreateOrEdit([AreaModel? field]) async {
+  Future<void> _openCreateOrEdit(BuildContext context, [AreaModel? field]) async {
     final loc = AppLocalizations.of(context)!;
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => CreateEditDialog<AreaModel>(
-        title: field == null ? loc.createField : loc.editField,
-        initialData: field ?? AreaModel.empty(),
-        formBuilder: (data, onChanged) {
-          final titleCtr = TextEditingController(text: data.title);
-          final descCtr = TextEditingController(text: data.subtitle);
-          String? imagePath = data.image;
+      builder: (_) {
+        String? imagePath = field?.image;
+        final titleController = TextEditingController(text: field?.title ?? '');
+        final descController = TextEditingController(text: field?.subtitle ?? '');
+        const primaryColor = Color(0xFF326B80); // لون التطبيق الأساسي
 
-          return StatefulBuilder(
-            builder: (context, setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: titleCtr,
-                    decoration: InputDecoration(labelText: loc.fieldName),
-                    validator: (v) =>
-                    v!.isEmpty ? loc.enterFieldName : null,
-                    onChanged: (v) => onChanged(data.copyWith(title: v)),
+        return CreateEditDialog<AreaModel>(
+          title: field == null ? loc.createField : loc.editField,
+          initialData: field ?? AreaModel.empty(),
+          formBuilder: (data, onChanged) {
+            return StatefulBuilder(
+              builder: (context, setState) {
+                return Form(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: titleController,
+                        decoration: InputDecoration(
+                          labelText: loc.fieldName,
+                          labelStyle: const TextStyle(color: primaryColor),
+                          enabledBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor),
+                          ),
+                          focusedBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2),
+                          ),
+                          errorBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.red),
+                          ),
+                          focusedErrorBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.red, width: 2),
+                          ),
+                        ),
+                        style: const TextStyle(color: primaryColor),
+                        validator: (v) => v == null || v.isEmpty ? loc.enterFieldName : null,
+                        onChanged: (v) {
+                          onChanged(data.copyWith(title: v.trim()));
+                          print('Title updated: ${titleController.text}');
+                        },
+                      ),
+                      SizedBox(height: 16.h),
+                      TextFormField(
+                        controller: descController,
+                        decoration: InputDecoration(
+                          labelText: loc.description,
+                          labelStyle: const TextStyle(color: primaryColor),
+                          enabledBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor),
+                          ),
+                          focusedBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2),
+                          ),
+                          errorBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.red),
+                          ),
+                          focusedErrorBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.red, width: 2),
+                          ),
+                        ),
+                        style: const TextStyle(color: primaryColor),
+                        validator: (v) => v == null || v.isEmpty ? loc.enterDescription : null,
+                        onChanged: (v) {
+                          onChanged(data.copyWith(subtitle: v.trim()));
+                          print('Description updated: ${descController.text}');
+                        },
+                      ),
+                      SizedBox(height: 16.h),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final picker = ImagePicker();
+                          final picked = await picker.pickImage(source: ImageSource.gallery);
+                          if (picked != null) {
+                            setState(() => imagePath = picked.path);
+                            onChanged(data.copyWith(image: imagePath));
+                            print('Image updated: $imagePath');
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14.r),
+                          ),
+                        ),
+                        child: Text(loc.chooseImage),
+                      ),
+                      if (imagePath != null && imagePath!.isNotEmpty) ...[
+                        SizedBox(height: 8.h),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: primaryColor),
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                          child: Image.file(
+                            File(imagePath!),
+                            height: 100.h,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  SizedBox(height: 16.h),
-                  TextFormField(
-                    controller: descCtr,
-                    decoration: InputDecoration(labelText: loc.description),
-                    validator: (v) => v!.isEmpty ? loc.enterDescription : null,
-                    onChanged: (v) => onChanged(data.copyWith(subtitle: v)),
-                  ),
-                  SizedBox(height: 16.h),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final picker = ImagePicker();
-                      final picked = await picker.pickImage(source: ImageSource.gallery);
-                      if (picked != null) {
-                        setState(() => imagePath = picked.path);
-                        onChanged(data.copyWith(image: imagePath));
-                      }
-                    },
-                    child: Text(loc.chooseImage),
-                  ),
-                  if (imagePath != null) ...[
-                    SizedBox(height: 8.h),
-                    Image.file(File(imagePath!), height: 100.h, fit: BoxFit.cover),
-                  ],
-                ],
-              );
-            },
-          );
-        },
-        onSubmit: (model) => field == null
-            ? FieldService.createField(model.title, model.subtitle, model.image)
-            : FieldService.updateField(model.id, model.title, model.subtitle, model.image),
-      ),
+                );
+              },
+            );
+          },
+          onSubmit: (model) {
+            final updatedTitle = titleController.text.trim();
+            final updatedDesc = descController.text.trim();
+            final updatedImage = (imagePath == null || imagePath!.trim().isEmpty) ? null : imagePath;
+
+            print('Submitting: title=$updatedTitle, subtitle=$updatedDesc, image=$updatedImage');
+            if (updatedTitle.isEmpty || updatedDesc.isEmpty) {
+              throw Exception(loc.enterFieldName);
+            }
+            if (field == null) {
+              context.read<FieldBloc>().add(CreateField(updatedTitle, updatedDesc, updatedImage));
+            } else {
+              context.read<FieldBloc>().add(UpdateField(model.id, updatedTitle, updatedDesc, updatedImage));
+            }
+            return Future.value();
+          },
+        );
+      },
     );
-    if (result == true) _loadFields();
+
+    if (result == true) {
+      CommunityTab.needRefresh = true;
+    }
   }
 
-  /* ───────── حذف مجال ───────── */
-  Future<void> _confirmDelete(int fieldId) async {
+  Future<void> _confirmDelete(BuildContext context, int fieldId) async {
     final loc = AppLocalizations.of(context)!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => DeleteConfirmation(message: loc.deleteFieldConfirm),
     );
     if (ok == true) {
-      try {
-        await FieldService.deleteField(fieldId);
-        _loadFields();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loc.deleteError}: $e')),
-        );
-      }
+      context.read<FieldBloc>().add(DeleteField(fieldId));
     }
   }
 
-  /* ───────── واجهة التبويب ───────── */
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.all(16.w),
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.add,color: Colors.white),
-            label: Text(loc.addField,style: const TextStyle(color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF326B80),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20.r),
-              ),
-            ),
-            onPressed: () => _openCreateOrEdit(),
-          ),
-        ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _fields.isEmpty
-              ? Center(child: Text(loc.noFields))
-              : ListView.builder(
-            padding: EdgeInsets.symmetric(vertical: 8.h),
-            itemCount: _fields.length,
-            itemBuilder: (_, i) {
-              final f = _fields[i];
-              return Card(
-                margin:
-                EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-                child: ListTile(
-                  title: Text(f.title),
-                  subtitle: Text(f.subtitle),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _openCreateOrEdit(f),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _confirmDelete(f.id),
-                      ),
-                    ],
+    return BlocConsumer<FieldBloc, FieldState>(
+      listener: (context, state) {
+        if (state.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${loc.fetchError}: ${state.error}')),
+          );
+        }
+      },
+      builder: (context, state) {
+        final filtered = state.fields.where((f) =>
+        f.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            f.subtitle.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+        return Stack(
+          children: [
+            Column(
+              children: [
+                SearchBarWidget(
+                  hintText: loc.searchField,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                ),
+                Expanded(
+                  child: state.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : state.fields.isEmpty
+                      ? Center(child: Text(loc.noFields))
+                      : ListView.builder(
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final f = filtered[i];
+                      return Card(
+                        margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+                        child: ListTile(
+                          title: Text(f.title),
+                          subtitle: Text(f.subtitle),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Color(0xFF326B80)),
+                                onPressed: () => _openCreateOrEdit(context, f),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => _confirmDelete(context, f.id),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-      ],
+              ],
+            ),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Padding(
+                padding: EdgeInsets.all(16.w),
+                child: FloatingActionButton.extended(
+                  onPressed: () => _openCreateOrEdit(context),
+                  icon: const Icon(Icons.add, color: Color(0xFF326B80)),
+                  label: Text(
+                    loc.addField,
+                    style: const TextStyle(color: Color(0xFF326B80)),
+                  ),
+                  backgroundColor: const Color(0xFFF5F9F9),
+                  foregroundColor: const Color(0xFF326B80),
+                  shape: const StadiumBorder(
+                    side: BorderSide(color: Color(0xFF326B80)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -52,7 +52,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.orange,
+          indicatorColor: Color(0xFFAAAEB1),
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: [

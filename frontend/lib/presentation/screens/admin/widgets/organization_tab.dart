@@ -1,48 +1,44 @@
-// lib/presentation/admin_dashboard/widgets/organization_tab.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import 'package:frontend/core/services/organization_user_service.dart';
 import 'package:frontend/data/models/user_profile_model.dart';
+ // تأكد من المسار الصحيح
 
+import '../../../blocs/organization/organization_bloc.dart';
+import '../../../blocs/organization/organization_event.dart';
+import '../../../blocs/organization/organization_state.dart';
+import '../../../widgets/search_bar_widget.dart';
 import 'create_edit_dialog.dart';
 import 'delete_confirmation.dart';
 
-class OrganizationTab extends StatefulWidget {
+class OrganizationTab extends StatelessWidget {
   const OrganizationTab({Key? key}) : super(key: key);
 
   @override
-  State<OrganizationTab> createState() => _OrganizationTabState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => OrganizationBloc()..add(FetchOrganizations()),
+      child: const _OrganizationTabContent(),
+    );
+  }
 }
 
-class _OrganizationTabState extends State<OrganizationTab> {
-  List<UserProfileModel> _orgUsers = [];
-  bool _loading = false;
+class _OrganizationTabContent extends StatefulWidget {
+  const _OrganizationTabContent();
 
   @override
-  void initState() {
-    super.initState();
-    _loadOrgUsers();
-  }
+  State<_OrganizationTabContent> createState() => _OrganizationTabContentState();
+}
 
-  Future<void> _loadOrgUsers() async {
-    final loc = AppLocalizations.of(context)!;
-    setState(() => _loading = true);
-    try {
-      _orgUsers = await OrganizationUserService.fetchOrganizationUsers();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${loc.fetchError}: $e')),
-      );
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
+class _OrganizationTabContentState extends State<_OrganizationTabContent> {
+  String _searchQuery = '';
 
-  /* ───────── إنشاء منظمة ───────── */
-  Future<void> _showCreateOrgDialog() async {
+  Future<void> _showCreateOrgDialog(BuildContext context) async {
     final loc = AppLocalizations.of(context)!;
+    const primaryColor = Color(0xFF326B80);
 
     final formKey = GlobalKey<FormState>();
     final nameCtr = TextEditingController();
@@ -53,14 +49,10 @@ class _OrganizationTabState extends State<OrganizationTab> {
     final descCtr = TextEditingController();
     final webCtr = TextEditingController();
 
-    final created = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        //style: TextStyle(color: Colors.white, fontSize: 18.sp),
-        //style: const TextStyle(
-        //                 color: AppColors.primaryColor,
-        //                 fontSize: 20,
         title: Text(loc.createOrg),
         content: SingleChildScrollView(
           child: Form(
@@ -68,15 +60,12 @@ class _OrganizationTabState extends State<OrganizationTab> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                /*** مطلوب: الاسم ***/
                 TextFormField(
                   controller: nameCtr,
                   decoration: InputDecoration(labelText: loc.orgName),
                   validator: (v) => v!.trim().isEmpty ? loc.nameRequired : null,
                 ),
                 SizedBox(height: 12.h),
-
-                /*** مطلوب: البريد ***/
                 TextFormField(
                   controller: emailCtr,
                   decoration: InputDecoration(labelText: loc.email),
@@ -84,8 +73,6 @@ class _OrganizationTabState extends State<OrganizationTab> {
                   (v != null && v.contains('@')) ? null : loc.invalidEmail,
                 ),
                 SizedBox(height: 12.h),
-
-                /*** مطلوب: كلمة المرور ***/
                 TextFormField(
                   controller: passCtr,
                   obscureText: true,
@@ -95,27 +82,22 @@ class _OrganizationTabState extends State<OrganizationTab> {
                       : loc.passwordShort,
                 ),
                 SizedBox(height: 20.h),
-
-                /*** اختياريّات ***/
                 TextFormField(
                   controller: workCtr,
                   decoration: InputDecoration(labelText: loc.workEducationOpt),
                 ),
                 SizedBox(height: 12.h),
-
                 TextFormField(
                   controller: posCtr,
                   decoration: InputDecoration(labelText: loc.positionOpt),
                 ),
                 SizedBox(height: 12.h),
-
                 TextFormField(
                   controller: descCtr,
                   decoration: InputDecoration(labelText: loc.descriptionOpt),
                   maxLines: 2,
                 ),
                 SizedBox(height: 12.h),
-
                 TextFormField(
                   controller: webCtr,
                   decoration: InputDecoration(labelText: loc.websiteOpt),
@@ -127,44 +109,50 @@ class _OrganizationTabState extends State<OrganizationTab> {
         actions: [
           OutlinedButton(
             onPressed: () => Navigator.pop(context, false),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: primaryColor, // لون النص إلى 0xFF326B80
+              side: const BorderSide(color: primaryColor), // لون الحدود إلى 0xFF326B80
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            ),
             child: Text(loc.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14.r),
+                ),
+              );
               if (!formKey.currentState!.validate()) return;
-              try {
-                final profile = UserProfileModel.empty().copyWith(
-                  name: nameCtr.text.trim(),
-                  email: emailCtr.text.trim(),
-                  userType: 'organization',
-                  workEducation: workCtr.text.trim(),
-                  position: posCtr.text.trim(),
-                  description: descCtr.text.trim(),
-                  website: webCtr.text.trim(),
-                );
-                await OrganizationUserService.createOrganizationUser(
-                    profile, passCtr.text.trim());
-                Navigator.pop(context, true);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${loc.createOrgFail}: $e')),
-                );
-              }
+              final profile = UserProfileModel.empty().copyWith(
+                name: nameCtr.text.trim(),
+                email: emailCtr.text.trim(),
+                userType: 'organization',
+                workEducation: workCtr.text.trim(),
+                position: posCtr.text.trim(),
+                description: descCtr.text.trim(),
+                website: webCtr.text.trim(),
+              );
+              context.read<OrganizationBloc>().add(
+                CreateOrganization(profile, passCtr.text.trim()),
+              );
+              Navigator.pop(context, true);
             },
-            child: Text(loc.create),
+            child: Text(loc.create,
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
     );
-
-    if (created == true) _loadOrgUsers();
   }
 
-  /* ───────── تعديل منظمة ───────── */
-  Future<void> _showEditOrgDialog(UserProfileModel user) async {
+  Future<void> _showEditOrgDialog(BuildContext context, UserProfileModel user) async {
     final loc = AppLocalizations.of(context)!;
 
-    final result = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (_) => CreateEditDialog<UserProfileModel>(
         title: loc.editOrg,
@@ -224,84 +212,109 @@ class _OrganizationTabState extends State<OrganizationTab> {
             ),
           );
         },
-        onSubmit: (model) =>
-            OrganizationUserService.updateOrganizationUser(model.id, model),
+        onSubmit: (model) async =>
+            context.read<OrganizationBloc>().add(UpdateOrganization(model.id, model)),
       ),
     );
-
-    if (result == true) _loadOrgUsers();
   }
 
-  /* ───────── حذف منظمة ───────── */
-  Future<void> _confirmDelete(int userId) async {
+  Future<void> _confirmDelete(BuildContext context, int userId) async {
     final loc = AppLocalizations.of(context)!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => DeleteConfirmation(message: loc.deleteOrgConfirm),
     );
     if (ok == true) {
-      await OrganizationUserService.deleteOrganizationUser(userId);
-      _loadOrgUsers();
+      context.read<OrganizationBloc>().add(DeleteOrganization(userId));
     }
   }
 
-  /* ───────── واجهة التبويب ───────── */
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
+    return BlocConsumer<OrganizationBloc, OrganizationState>(
+      listener: (context, state) {
+        if (state is OrganizationError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${AppLocalizations.of(context)!.fetchError}: ${state.error}')),
+          );
+        }
+      },
+      builder: (context, state) {
+        final loc = AppLocalizations.of(context)!;
+        List<UserProfileModel> organizations = [];
 
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.all(16.w),
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.add,color: Colors.white),
-            label: Text(loc.addOrg,style: const TextStyle(color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF326B80),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20.r),
-              ),
-            ),
-            onPressed: _showCreateOrgDialog,
-          ),
-        ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _orgUsers.isEmpty
-              ? Center(child: Text(loc.noOrgs))
-              : ListView.builder(
-            itemCount: _orgUsers.length,
-            itemBuilder: (_, i) {
-              final u = _orgUsers[i];
-              return Card(
-                margin: EdgeInsets.symmetric(
-                    horizontal: 16.w, vertical: 8.h),
-                child: ListTile(
-                  title: Text(u.name),
-                  subtitle: Text(u.email),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit,
-                            color: Colors.blue),
-                        onPressed: () => _showEditOrgDialog(u),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete,
-                            color: Colors.red),
-                        onPressed: () => _confirmDelete(u.id),
-                      ),
-                    ],
+        if (state is OrganizationLoaded) {
+          organizations = state.organizations;
+        }
+
+        final filtered = organizations.where((u) =>
+        u.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            u.email.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+        return Stack(
+          children: [
+            Column(
+              children: [
+                SearchBarWidget(
+                  hintText: loc.searchOrg,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                ),
+                Expanded(
+                  child: state is OrganizationLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : organizations.isEmpty
+                      ? Center(child: Text(loc.noOrgs))
+                      : ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final u = filtered[i];
+                      return Card(
+                        margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        child: ListTile(
+                          title: Text(u.name),
+                          subtitle: Text(u.email),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Color(0xFF326B80)),
+                                onPressed: () => _showEditOrgDialog(context, u),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => _confirmDelete(context, u.id),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-      ],
+              ],
+            ),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Padding(
+                padding: EdgeInsets.all(16.w),
+                child: FloatingActionButton.extended(
+                  onPressed: () => _showCreateOrgDialog(context),
+                  icon: const Icon(Icons.add, color: Color(0xFF326B80)),
+                  label: Text(
+                    loc.addOrg,
+                    style: const TextStyle(color: Color(0xFF326B80)),
+                  ),
+                  backgroundColor: const Color(0xFFF5F9F9),
+                  foregroundColor: const Color(0xFF326B80),
+                  shape: const StadiumBorder(
+                    side: BorderSide(color: Color(0xFF326B80)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

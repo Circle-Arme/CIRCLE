@@ -10,13 +10,18 @@ import 'package:frontend/presentation/blocs/thread/thread_state.dart';
 import 'package:frontend/presentation/theme/app_colors.dart';
 import 'package:frontend/presentation/screens/thread/create_thread_form.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../../../core/utils/shared_prefs.dart';
 import '../../widgets/custom_drawer.dart';
 import '../../widgets/search_bar_widget.dart';
 import '../../widgets/threads_list_widget.dart';
 import 'package:frontend/presentation/screens/job_opportunities/job_opportunities_page.dart';
 
+import '../discussion/discussion_room_page.dart';
+import '../thread/edit_thread_form.dart';
+
 class AdvancedDiscussionRoomPage extends StatefulWidget {
   final int communityId;
+
 
   const AdvancedDiscussionRoomPage({Key? key, required this.communityId}) : super(key: key);
 
@@ -28,141 +33,263 @@ class _AdvancedDiscussionRoomPage extends State<AdvancedDiscussionRoomPage> {
 String _activeFilterType = 'topic';
   String _selectedFilterOption = 'All';
   String _searchQuery = '';
+  String _communityLevel = 'both';
   late Future<List<ThreadModel>> _threadsFuture;
   late Future<String?> _userTypeFuture;
+  late Future<String?> _currentUserIdFuture;
 
-  @override
+
+@override
   void initState() {
     super.initState();
     _threadsFuture = ThreadService.fetchThreads(widget.communityId, roomType: 'discussion_advanced');
     _userTypeFuture = AuthService.getUserType();
+    _currentUserIdFuture = AuthService.getCurrentUserId();
     context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId, 'discussion_advanced')); // الآن يمكن الوصول إلى ThreadBloc
+    SharedPrefs.getCommunityLevel(widget.communityId).then((lvl) {
+      setState(() {
+        _communityLevel = lvl ?? 'both';
+      });
+    });
   }
 
   Future<void> _refreshThreads() async {
     context.read<ThreadBloc>().add(FetchThreadsEvent(widget.communityId, 'discussion_advanced'));
   }
 
-  List<ThreadModel> _filterThreads(List<ThreadModel> threads) {
-    List<ThreadModel> filtered = threads;
+List<ThreadModel> _filterThreads(List<ThreadModel> threads) {
+  var filtered = List<ThreadModel>.from(threads);
 
-    if (_activeFilterType == 'topic') {
-      if (_selectedFilterOption == 'Q&A' || _selectedFilterOption == 'General') {
-        filtered = filtered.where((t) => t.classification == _selectedFilterOption).toList();
-      }
-    } else if (_activeFilterType == 'engagement') {
-      if (_selectedFilterOption == 'mostPopular') {
-        filtered.sort((a, b) => b.repliesCount.compareTo(a.repliesCount));
-      } else if (_selectedFilterOption == 'latest') {
-        filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      }
-    }
-
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered
-          .where((t) => t.title.toLowerCase().contains(_searchQuery.toLowerCase()))
-          .toList();
-    }
-
-    return filtered;
+  // تصنيف المحتوى
+  if (_selectedFilterOption == 'Q&A' || _selectedFilterOption == 'General') {
+    filtered = filtered
+        .where((t) => t.classification == _selectedFilterOption)
+        .toList();
   }
 
-  Future<void> _createNewThread() async {
-    await Navigator.push(
+  // الأكثر تفاعلاً
+  if (_selectedFilterOption == 'mostPopular') {
+    filtered.sort((a, b) => b.repliesCount.compareTo(a.repliesCount));
+  }
+
+  // الأحدث
+  if (_selectedFilterOption == 'latest') {
+    filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  // البحث
+  if (_searchQuery.isNotEmpty) {
+    filtered = filtered
+        .where((t) =>
+        t.title.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
+
+  return filtered;
+}
+
+void _onRoomSelected(String value) {
+  if (value == 'discussion' && runtimeType != DiscussionRoomPage) {
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => CreateThreadForm(
-          communityId: widget.communityId,
-          roomType:'discussion_advanced',
-          isJobOpportunity: false,
-          threadBloc: context.read<ThreadBloc>(), // الآن يمكن الوصول إلى ThreadBloc
+        builder: (_) => DiscussionRoomPage(communityId: widget.communityId),
+      ),
+    );
+  } else if (value == 'advanced' && runtimeType != AdvancedDiscussionRoomPage) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdvancedDiscussionRoomPage(communityId: widget.communityId),
+      ),
+    );
+  } else if (value == 'jobs' && runtimeType != JobOpportunitiesPage) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => JobOpportunitiesPage(communityId: widget.communityId),
+      ),
+    );
+  }
+}
+
+
+Future<void> _createNewThread() async {
+  final created = await Navigator.push<bool>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => CreateThreadForm(
+        communityId: widget.communityId,
+        roomType:    'discussion_advanced',    // أو job_opportunities
+        isJobOpportunity: false,              // ← true فى صفحة الوظائف
+        threadBloc: context.read<ThreadBloc>(),
+      ),
+    ),
+  );
+
+  //if (created == true) _refreshThreads();     // حدِّث القائمة فقط
+  _refreshThreads();
+}
+
+Future<void> _confirmDelete(ThreadModel thread) async {
+  final loc = AppLocalizations.of(context)!;
+
+  final bool? ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(
+        loc.delete,
+        style: const TextStyle(color: Colors.red),
+      ),
+      content: Text(loc.confirmDeleteThread), // أضف هذا المفتاح في arb
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(loc.cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          child: Text(loc.delete),
+        ),
+      ],
+    ),
+  );
+
+  if (ok == true) {
+    await ThreadService.deleteThread(int.parse(thread.id));
+    _refreshThreads();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.threadDeleted)), // مفتاح جديد أيضًا
+    );
+  }
+}
+
+
+
+
+Widget _buildFilterChips() {
+  final loc = AppLocalizations.of(context)!;
+  final options = [
+    {'label': loc.filterAll,     'value': 'All'},
+    {'label': loc.filterQna,     'value': 'Q&A'},
+    {'label': loc.filterGeneral, 'value': 'General'},
+    {'label': loc.mostPopular,   'value': 'mostPopular'},
+  ];
+
+  return SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: options.map((option) {
+        final value = option['value']!;
+        return Padding(
+          padding: EdgeInsets.only(right: 8.w),
+          child: ChoiceChip(
+            label: Text(option['label']!, style: TextStyle(fontSize: 14.sp)),
+            selected: _selectedFilterOption == value,
+            onSelected: (_) {
+              setState(() => _selectedFilterOption = value);
+              _refreshThreads();
+            },
+            selectedColor: AppColors.primaryColor.withOpacity(0.25),
+            backgroundColor: Colors.grey[300],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.r),
+            ),
+          ),
+        );
+      }).toList(),
+    ),
+  );
+}
+
+
+
+
+  // مساعد بناء
+Widget _menuRow({
+  required IconData icon,
+  required String text,
+  required bool selected,
+}) {
+  return Row(
+    children: [
+      Icon(icon, color: AppColors.primaryColor),
+      const SizedBox(width: 8),
+      Expanded(child: Text(text,
+          style: TextStyle(
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal))),
+      if (selected)
+        const Icon(Icons.check, color: AppColors.primaryColor),
+    ],
+  );
+}
+/// يبني زرّ السهم مع انتظار مستوى المستخدم
+Widget _buildRoomSwitcher() {
+  return FutureBuilder<String?>(
+    future: SharedPrefs.getCommunityLevel(widget.communityId),
+    builder: (context, snap) {
+      if (snap.connectionState != ConnectionState.done || snap.data == null) {
+        return const SizedBox.shrink();
+      }
+      final level = snap.data!; // 'beginner' | 'advanced' | 'both'
+
+      return PopupMenuButton<String>(
+        tooltip: AppLocalizations.of(context)!.switchRoom,
+        icon: const Icon(Icons.arrow_drop_down, color: AppColors.primaryColor),
+        onSelected: _onRoomSelected,
+        itemBuilder: (ctx) => _buildMenuItems(ctx, level),
+      );
+    },
+  );
+}
+
+/// تحضير قائمة العناصر بناءً على level
+List<PopupMenuEntry<String>> _buildMenuItems(BuildContext ctx, String level) {
+  final loc = AppLocalizations.of(ctx)!;
+  final items = <PopupMenuEntry<String>>[];
+
+  if (level == 'both' || level == 'beginner') {
+    items.add(
+      PopupMenuItem(
+        value: 'discussion',
+        child: _menuRow(
+          icon: Icons.forum,
+          text: loc.discussionRoom,
+          selected: runtimeType == DiscussionRoomPage,
         ),
       ),
     );
-    _refreshThreads();
   }
-
-  Widget _buildFilterButton() {
-    return PopupMenuButton<String>(
-      onSelected: (value) {
-        setState(() {
-          _activeFilterType = value;
-          _selectedFilterOption = (value == 'topic') ? 'All' : 'latest';
-        });
-        _refreshThreads();
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem(value: 'topic', child: Text(AppLocalizations.of(context)!.filterByTopic)),
-        PopupMenuItem(value: 'engagement', child: Text(AppLocalizations.of(context)!.filterByEngagement)),
-      ],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.filter_list, color: AppColors.primaryColor),
-          SizedBox(width: 4.w),
-          const Icon(Icons.arrow_drop_down, color: AppColors.primaryColor),
-        ],
+  if (level == 'both' || level == 'advanced') {
+    items.add(
+      PopupMenuItem(
+        value: 'advanced',
+        child: _menuRow(
+          icon: Icons.school,
+          text: loc.advancedDiscussionRoom,
+          selected: runtimeType == AdvancedDiscussionRoomPage,
+        ),
       ),
     );
   }
 
-  Widget _buildFilterChips() {
-    List<ChoiceChip> chips = [];
-    if (_activeFilterType == 'topic') {
-      final topicOptions = ['All', 'Q&A', 'General'];
-      chips = topicOptions.map((option) {
-        String label;
-        IconData icon;
-        if (option == 'All') {
-          label = AppLocalizations.of(context)!.filterAll;
-          icon = Icons.list;
-        } else if (option == 'Q&A') {
-          label = AppLocalizations.of(context)!.filterQna;
-          icon = Icons.question_answer;
-        } else {
-          label = AppLocalizations.of(context)!.filterGeneral;
-          icon = Icons.forum;
-        }
-        return ChoiceChip(
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18.sp),
-              SizedBox(width: 4.w),
-              Text(label, style: TextStyle(fontSize: 14.sp)),
-            ],
-          ),
-          selected: _selectedFilterOption == option,
-          onSelected: (selected) {
-            setState(() => _selectedFilterOption = option);
-            _refreshThreads();
-          },
-          selectedColor: AppColors.primaryColor.withOpacity(0.2),
-          backgroundColor: Colors.grey[300],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        );
-      }).toList();
-    } else if (_activeFilterType == 'engagement') {
-      final engagementOptions = ['latest', 'mostPopular'];
-      chips = engagementOptions.map((option) {
-        String label = option == 'latest'
-            ? AppLocalizations.of(context)!.latest
-            : AppLocalizations.of(context)!.mostPopular;
-        return ChoiceChip(
-          label: Text(label, style: TextStyle(fontSize: 14.sp)),
-          selected: _selectedFilterOption == option,
-          onSelected: (selected) {
-            setState(() => _selectedFilterOption = option);
-            _refreshThreads();
-          },
-          selectedColor: AppColors.primaryColor.withOpacity(0.2),
-          backgroundColor: Colors.grey[300],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        );
-      }).toList();
-    }
-    return Wrap(spacing: 12.w, runSpacing: 8.h, children: chips);
-  }
+  items.add(const PopupMenuDivider());
+
+  items.add(
+    PopupMenuItem(
+      value: 'jobs',
+      child: _menuRow(
+        icon: Icons.work,
+        text: loc.jobOpportunities,
+        selected: runtimeType == JobOpportunitiesPage,
+      ),
+    ),
+  );
+
+  return items;
+}
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +319,7 @@ String _activeFilterType = 'topic';
             elevation: 0,
             iconTheme: const IconThemeData(color: AppColors.primaryColor),
             title: Text(
-              loc.discussionRoom,
+              loc.advancedDiscussionRoom,
               style: const TextStyle(
                   color: AppColors.primaryColor,
                   fontSize: 20,
@@ -201,61 +328,16 @@ String _activeFilterType = 'topic';
             actions: [
               FutureBuilder<String?>(
                 future: _userTypeFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const SizedBox.shrink();
-                  }
-                  if (snapshot.hasData && snapshot.data == "regular") {
-                    return PopupMenuButton<String>(
-                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.primaryColor),
-                      onSelected: (value) {
-                        if (value == 'jobs') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => JobOpportunitiesPage(communityId: widget.communityId),
-                            ),
-                          );
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => [
-                        PopupMenuItem<String>(
-                          value: 'discussion',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.forum, color: AppColors.primaryColor),
-                              const SizedBox(width: 8),
-                              Text(
-                                loc.discussionRoom,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const Spacer(),
-                              const Icon(Icons.check, color: AppColors.primaryColor),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        PopupMenuItem<String>(
-                          value: 'jobs',
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 12,
-                                backgroundColor: AppColors.primaryColor,
-                                child: Icon(Icons.work, color: Colors.white, size: 16),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(loc.jobOpportunities),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.done && snap.data == 'normal') {
+                    // هنا تستدعي زرّ السهم الجاهز
+                    return _buildRoomSwitcher();
                   }
                   return const SizedBox.shrink();
                 },
               ),
             ],
+
             bottom: PreferredSize(
               preferredSize: Size.fromHeight(60.h),
               child: SearchBarWidget(
@@ -279,14 +361,7 @@ String _activeFilterType = 'topic';
                 children: [
                   Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.h),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFilterButton(),
-                        SizedBox(width: 8.w),
-                        Expanded(child: _buildFilterChips()),
-                      ],
-                    ),
+                    child: _buildFilterChips(),
                   ),
                   SizedBox(height: 16.h),
                   Expanded(
@@ -297,11 +372,39 @@ String _activeFilterType = 'topic';
                         } else if (state is ThreadError) {
                           return Center(child: Text("${loc.error}: ${state.message}"));
                         }  else if (state is ThreadLoaded) {
-                          return ThreadsListWidget(
-                            threadsFuture: Future.value(state.threads),
-                            filterThreads: _filterThreads,
-                            onRefresh: _refreshThreads,
+                          return FutureBuilder<String?>(
+                            future: _currentUserIdFuture,
+                            builder: (context, userSnap) {
+                              if (userSnap.connectionState != ConnectionState.done) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+
+                              final currentUserId = int.tryParse(userSnap.data ?? '') ?? -1;
+
+                              return ThreadsListWidget(
+                                threadsFuture: Future.value(state.threads),
+                                filterThreads: _filterThreads,
+                                onRefresh: _refreshThreads,
+                                currentUserId: currentUserId,
+                                onEdit: (thread) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => EditThreadForm(
+                                        thread: thread,
+                                        communityId: widget.communityId,
+                                        roomType: 'discussion_advanced',
+                                        isJobOpportunity: thread.isJobOpportunity,
+                                        threadBloc: context.read<ThreadBloc>(),
+                                      ),
+                                    ),
+                                  ).then((_) => _refreshThreads());
+                                },
+                                onDelete: _confirmDelete,
+                              );
+                            },
                           );
+
                         }
                         return const SizedBox.shrink();
                       },

@@ -46,104 +46,109 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
   /// دالة عرض حوار الانضمام مع اختيار المستوى
   void _showJoinDialog(BuildContext context, int communityId, String communityName) async {
     final userProfile = await SharedPrefs.getUserProfile();
-    print('🧾 نوع المستخدم: ${userProfile?.userType}');
-    // إذا كان المستخدم من نوع "organization" → عرض حوار تأكيد مبسط
+
+    // اسماء المفاتيح
+    final loc = AppLocalizations.of(context)!;
+    final titleText = loc.titleJoinCommunity(communityName);
+
+    // إذا كان المستخدم من نوع "organization"
     if (userProfile?.userType == 'organization') {
       showDialog(
         context: context,
-        builder: (context) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-            content: Text(
-              "هل ترغب بالانضمام إلى هذا المجتمع؟",
-              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w500),
-              textAlign: TextAlign.center,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+          title: Text(titleText, textAlign: TextAlign.center),
+          content: Text(
+            loc.joinCommunityConfirmationSimple, // مثال: "هل ترغب بالانضمام إلى هذا المجتمع؟"
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w500),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _joinCommunity(context, communityId, 'job_only');
+              },
+              child: Text(loc.btnJoin, style: TextStyle(fontSize: 14.sp, color: const Color(0xFF326B80))),
             ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  // تجاهل المستوى المُرسل، واستخدام 'job_only' للمستخدمين من نوع منظمة
-                  await _joinCommunity(context, communityId, 'job_only');
-                },
-                child: Text(
-                  "نعم",
-                  style: TextStyle(fontSize: 14.sp, color: const Color(0xFF326B80)),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text("إلغاء"),
-              ),
-            ],
-          );
-        },
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(loc.btnCancel),
+            ),
+          ],
+        ),
       );
-    } else {
-      // المستخدم العادي يُظهر له الخيارات لاختيار المستوى
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
+      return;
+    }
+
+    // للمستخدم العادي: حوار اختيار المستوى
+    showDialog(
+      context: context,
+      builder: (_) {
+        String? _selectedLevel;
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+            title: Text(titleText, textAlign: TextAlign.center),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  AppLocalizations.of(context)!.joinCommunityConfirmation(communityName),
-                  style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w500),
+                  loc.subtitleChooseLevel,
                   textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 20.h),
-                Text(
-                  AppLocalizations.of(context)!.chooseYourLevel,
                   style: TextStyle(fontSize: 14.sp),
-                  textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 20.h),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                        await _joinCommunity(context, communityId, 'beginner');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.r)),
-                        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-                        backgroundColor: const Color(0xFF326B80),
-                      ),
-                      child: Text(
-                        AppLocalizations.of(context)!.general,
-                        style: TextStyle(fontSize: 14.sp, color: const Color(0xFFF5F9F9)),
-                      ),
-                    ),
-                    SizedBox(width: 20.w),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showAdvancedConfirmationDialog(context, communityId);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.r)),
-                        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-                        backgroundColor: const Color(0xFF326B80),
-                      ),
-                      child: Text(
-                        AppLocalizations.of(context)!.advanced,
-                        style: TextStyle(fontSize: 14.sp, color: const Color(0xFFF5F9F9)),
-                      ),
-                    ),
-                  ],
+                SizedBox(height: 16.h),
+
+                RadioListTile<String>(
+                  value: 'beginner',
+                  groupValue: _selectedLevel,
+                  title: Text(loc.levelGeneral),
+                  onChanged: (v) => setState(() => _selectedLevel = v),
+                ),
+                RadioListTile<String>(
+                  value: 'advanced',
+                  groupValue: _selectedLevel,
+                  title: Text(loc.levelAdvanced),
+                  onChanged: (v) => setState(() => _selectedLevel = v),
                 ),
               ],
             ),
-          );
-        },
-      );
-    }
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(loc.btnCancel),
+              ),
+              ElevatedButton(
+                onPressed: _selectedLevel == null
+                    ? null
+                    : () {
+                  Navigator.pop(context);
+                  if (_selectedLevel == 'advanced') {
+                  // هنا نظهر حوار التأكيد الإضافي بدل الانضمام مباشرة
+                  _showAdvancedConfirmationDialog(context, communityId);
+                  } else {
+                  // للمستوى العام نكمل مباشرة
+                  _joinCommunity(context, communityId, _selectedLevel!);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.r)),
+                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                  backgroundColor: const Color(0xFF326B80),
+                ),
+                child: Text(
+                  loc.btnJoin,
+                  style: TextStyle(fontSize: 14.sp, color: const Color(0xFFF5F9F9)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
+
 
   /// حوار تأكيد إضافي عند اختيار المستوى المتقدم (للمستخدم العادي)
   void _showAdvancedConfirmationDialog(BuildContext context, int communityId) {
@@ -153,7 +158,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
           content: Text(
-            "هل ترغب أيضاً بالانضمام إلى المستوى العام؟",
+            AppLocalizations.of(context)!.joinGeneralLevel,
             style: TextStyle(fontSize: 14.sp),
             textAlign: TextAlign.center,
           ),
@@ -164,7 +169,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                 await _joinCommunity(context, communityId, 'both');
               },
               child: Text(
-                "نعم",
+              AppLocalizations.of(context)!.yes,
                 style: TextStyle(fontSize: 14.sp, color: const Color(0xFF326B80)),
               ),
             ),
@@ -174,7 +179,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                 await _joinCommunity(context, communityId, 'advanced');
               },
               child: Text(
-                "لا، فقط متقدم",
+                AppLocalizations.of(context)!.advancedOnly,
                 style: TextStyle(fontSize: 14.sp, color: const Color(0xFF326B80)),
               ),
             ),
@@ -185,15 +190,15 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
   }
 
   /// دالة مساعدة لتنفيذ طلب الانضمام للمجتمع
-  Future<void> _joinCommunity(BuildContext context, int communityId, String level) async {
+  Future<void> _joinCommunity(BuildContext ctx, int communityId, String level,) async {
     try {
+      final nav = Navigator.of(ctx, rootNavigator: true);
       final userProfile = await SharedPrefs.getUserProfile();
       final userType = userProfile?.userType;
 
       if (userType == 'organization') {
         await CommunityService.joinCommunity(communityId, level: 'job_only');
-        Navigator.pushReplacement(
-          context,
+        nav.pushReplacement(
           MaterialPageRoute(
             builder: (_) => OrganizationRoomsPage(communityId: communityId),
           ),
@@ -202,18 +207,16 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
       }
 
       await CommunityService.joinCommunity(communityId, level: level);
-      Navigator.pushReplacement(
-        context,
+      nav.pushReplacement(
         MaterialPageRoute(
           builder: (_) => RoomsSelectionPage(
             communityId: communityId,
-            userLevel: level,
           ),
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.errorOccurred(e.toString()))),
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(ctx)!.errorOccurred(e.toString()))),
       );
     }
   }

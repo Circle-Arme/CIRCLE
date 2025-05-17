@@ -79,8 +79,94 @@ class AuthHttp {
       );
     }
 
+
     return response;
   }
+  static Future<http.Response> patch(
+      Uri url, {
+        Map<String, String>? headers,
+        dynamic body,
+      }) async {
+    String? token = await AuthService.getToken();
+    if (token == null) throw Exception("🔐 لا يوجد توكن.");
+
+    final fullHeaders = {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+      ...?headers,
+    };
+    final encodedBody = body == null
+        ? null
+        : (body is String ? body : jsonEncode(body));
+
+    var response = await http.patch(
+      url,
+      headers: fullHeaders,
+      body: encodedBody,
+    );
+
+    if (response.statusCode == 401) {
+      token = await AuthService.refreshAccessToken();
+      final retryHeaders = {
+        ...fullHeaders,
+        "Authorization": "Bearer $token",
+      };
+      response = await http.patch(
+        url,
+        headers: retryHeaders,
+        body: encodedBody,
+      );
+    }
+    return response;
+  }
+
+  /// DELETE مع Authorization وإعادة محاولة عند 401
+  static Future<http.Response> delete(
+      Uri url, {
+        Map<String, String>? headers,
+      }) async {
+    String? token = await AuthService.getToken();
+    if (token == null) throw Exception("🔐 لا يوجد توكن.");
+
+    var response = await http.delete(
+      url,
+      headers: {
+        "Authorization": "Bearer $token",
+        ...?headers,
+      },
+    );
+
+    if (response.statusCode == 401) {
+      token = await AuthService.refreshAccessToken();
+      response = await http.delete(
+        url,
+        headers: {
+          "Authorization": "Bearer $token",
+          ...?headers,
+        },
+      );
+    }
+    return response;
+  }
+
+  /// FieldService
+  static Future<http.StreamedResponse>sendMultipartWithAuth(
+      http.MultipartRequest req) async {
+    // إرسال أول مرة
+    var resp = await req.send();
+    // لو 401 → جدد التوكن وأعد الإرسال
+    if (resp.statusCode == 401) {
+      final newToken = await AuthService.refreshAccessToken();
+      req.headers['Authorization'] = 'Bearer $newToken';
+      resp = await req.send();
+    }
+    return resp;
+  }
+
+
+
+
+
 
 // لاحقًا يمكنك إضافة put, delete بنفس النمط
 }

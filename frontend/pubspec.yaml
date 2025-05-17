@@ -34,6 +34,8 @@ dependencies:
   url_launcher: ^6.2.1
   timeago: ^3.3.0
   image_picker: ^0.8.5+3
+  mime: ^1.0.4
+  carousel_slider: ^5.0.0
 
   flutter_localizations:
     sdk: flutter
@@ -73,6 +75,7 @@ flutter:
 
   assets:
     - assets/welcome.png
+    - assets/welcom2.png
 
 
 

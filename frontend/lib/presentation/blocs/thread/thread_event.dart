@@ -25,6 +25,8 @@ class CreateThreadEvent extends ThreadEvent {
   final String? jobType;
   final String? location;
   final String? salary;
+  final String? jobLink;
+  final String? jobLinkType;
 
   CreateThreadEvent(
       this.communityId,
@@ -38,5 +40,40 @@ class CreateThreadEvent extends ThreadEvent {
         this.jobType,
         this.location,
         this.salary,
+        this.jobLink,
+        this.jobLinkType,
       });
+}
+class UpdateThreadEvent extends ThreadEvent {
+  final int threadId;
+  final int communityId;
+  final String roomType;
+  final String title;
+  final String content;
+  final String classification;
+  final List<String> tags;
+  final PlatformFile? file;
+  final bool isJobOpportunity;
+  final String? jobType;
+  final String? location;
+  final String? salary;
+  final String? jobLink;
+  final String? jobLinkType;
+
+  UpdateThreadEvent({
+    required this.threadId,
+    required this.communityId,
+    required this.roomType,
+    required this.title,
+    required this.content,
+    required this.classification,
+    required this.tags,
+    this.file,
+    this.isJobOpportunity = false,
+    this.jobType,
+    this.location,
+    this.salary,
+    this.jobLink,
+    this.jobLinkType,
+  });
 }

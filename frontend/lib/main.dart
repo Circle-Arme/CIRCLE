@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:frontend/presentation/blocs/language/language_state.dart';
 import 'package:frontend/presentation/blocs/theme/theme_state.dart';
+import 'package:frontend/presentation/screens/auth/regstraion_page.dart';
 import 'presentation/blocs/language/language_bloc.dart';
 import 'presentation/blocs/language/language_event.dart';
 import 'presentation/blocs/theme/theme_bloc.dart';
@@ -17,6 +18,7 @@ import 'core/utils/shared_prefs.dart';
 import 'presentation/screens/auth/login_page.dart';
 import 'presentation/screens/home/fields_page.dart';
 import 'presentation/screens/admin/admin_dashboard_page.dart';
+import 'presentation/screens/Welcome/welcome_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -101,13 +103,15 @@ class MyApp extends StatelessWidget {
                     themeMode: themeState.themeMode,
 
                     // ✅ البداية من صفحة تسجيل الدخول
-                    initialRoute: '/login',
+                    initialRoute: '/welcome',
 
                     // ✅ المسارات (دون تمرير باراميترات)
                     routes: {
+                      '/welcome': (context) => const WelcomePage(),
                       '/login': (context) => const LoginPage(),
                       '/fields': (context) => const FieldsPage(),
                       '/admin': (context) => const AdminDashboardPage(),
+                      '/signup': (context) => const CreateAccountPage(),
                     },
                   );
                 },

@@ -50,6 +50,9 @@ class ThreadService {
         String? jobType,
         String? location,
         String? salary,
+        String? jobLink,
+        String? jobLinkType,
+
       }) async {
     String? token = await AuthService.getToken();
     if (token == null) throw Exception("No valid token found");
@@ -76,6 +79,8 @@ class ThreadService {
       if (jobType != null) req.fields['job_type'] = jobType;
       if (location != null) req.fields['location'] = location;
       if (salary != null) req.fields['salary'] = salary;
+      if (jobLink != null) req.fields['job_link'] = jobLink;
+      if (jobLinkType != null) req.fields['job_link_type'] = jobLinkType;
     }
     if (file != null) {
       req.files.add(
@@ -95,6 +100,59 @@ class ThreadService {
       throw Exception("فشل إنشاء الثريد: ${resp.statusCode}");
     }
     return ThreadModel.fromJson(json.decode(utf8.decode(resp.bodyBytes)));
+  }
+
+  static Future<void> deleteThread(int threadId) async {
+    final uri = Uri.parse('$_base/threads/$threadId/');
+    final res = await AuthHttp.delete(uri);
+    if (res.statusCode != 204) {
+      throw Exception("خطأ في الحذف: ${res.statusCode}");
+    }
+  }
+
+  static Future<ThreadModel> updateThread(
+      int threadId, {
+        String? title,
+        String? details,
+        String? classification,
+        List<String>? tags,
+        PlatformFile? file, // غير مدعوم
+        bool isJobOpportunity = false,
+        String? jobType,
+        String? location,
+        String? salary,
+        String? jobLink,
+        String? jobLinkType,
+      }) async {
+    final uri = Uri.parse('$_base/threads/$threadId/');
+    final body = <String, dynamic>{};
+
+    if (title           != null) body['title']           = title;
+    if (details         != null) body['details']         = details;
+    if (classification  != null) body['classification']  = classification;
+    if (tags            != null) body['tags']            = tags;
+    if (jobType         != null) body['job_type']        = jobType;
+    if (location        != null) body['location']        = location;
+    if (salary          != null) body['salary']          = salary;
+    if (jobLink         != null) body['job_link']        = jobLink;
+    if (jobLinkType     != null) body['job_link_type']   = jobLinkType;
+
+    // فقط أضف حقل الوظيفة إذا كان true أو فيه معلومات
+    body['is_job_opportunity'] = isJobOpportunity;
+
+    // TODO: إذا أردت دعم رفع ملف جديد (file)، استخدم Multipart لاحقًا
+
+    final res = await AuthHttp.patch(
+      uri,
+      body: jsonEncode(body),
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception("خطأ في التعديل: ${res.statusCode}");
+    }
+
+    final data = json.decode(utf8.decode(res.bodyBytes));
+    return ThreadModel.fromJson(data);
   }
 
   /// إنشاء رد (مع دعم الملف والرد المتداخل)

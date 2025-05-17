@@ -144,9 +144,9 @@ class OrganizationUserService {
   }
 
   /// جلب بروفايل مستخدم مؤسسة (يُستدعى في _loadLatestProfile)
-  static Future<UserProfileModel> fetchUserProfileById(String id) async {
+  static Future<UserProfileModel> fetchUserProfileById(String userId) async {
     final token = await SharedPrefs.getAccessToken();
-    final uri   = Uri.parse("http://10.0.2.2:8000/api/accounts/profile/$id/");
+    final uri = Uri.parse('${ApiConfig.baseUrl}/accounts/profile/$userId/');
     //final uri   = Uri.parse("http://192.168.1.5:8000/api/accounts/profile/$id/");
     //http://192.168.1.5:8000
     final resp  = await http.get(uri, headers: {

@@ -17,8 +17,8 @@ class CommunityModel {
     return CommunityModel(
       id: json['id'],
       name: json['name'],
-      areaId: json['field'].toString(), // تأكد من اسم الحقل كما في الـ API
-      image: json['image'],
+      areaId: json['field'].toString(),
+      image: json['image'] as String?,
       level: json['level'] as String?,
     );
   }

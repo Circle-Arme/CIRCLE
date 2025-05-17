@@ -5,7 +5,8 @@ import 'dart:io' show Platform;
 
 /// تحوي عناوين السيرفر لكل سيناريو:
 const _webHost        = 'http://localhost:8000/api';
-const _androidEmuHost = 'http://10.0.2.2:8000/api';
+const _androidEmuHost = 'http://192.168.1.5:8000/api';
+//const _androidEmuHost = 'http://10.0.2.2:8000/api';
 const _iosSimHost     = 'http://127.0.0.1:8000/api';
 
 /// Base URL يتم اختياره تلقائيًا حسب المنصّة:
@@ -18,3 +19,4 @@ class ApiConfig {
     return _webHost;
   }
 }
+//http://192.168.1.5:8000/api

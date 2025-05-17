@@ -1,4 +1,3 @@
-// lib/widgets/create_edit_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -34,10 +33,20 @@ class _CreateEditDialogState<T> extends State<CreateEditDialog<T>> {
     _currentData = widget.initialData;
   }
 
-  void _onFieldChanged(T updated) => _currentData = updated;
+  void _onFieldChanged(T updated) {
+    setState(() {
+      _currentData = updated;
+      print('Updated data: $_currentData'); // تسجيل للتحقق من القيم
+    });
+  }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      print('Form validation failed'); // تسجيل إذا فشل التحقق
+      return;
+    }
+    _formKey.currentState!.save();
+    print('Submitting data: $_currentData'); // تسجيل القيم قبل الإرسال
     setState(() => _loading = true);
     try {
       await widget.onSubmit(_currentData);
@@ -56,6 +65,7 @@ class _CreateEditDialogState<T> extends State<CreateEditDialog<T>> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    const primaryColor = Color(0xFF326B80); // لون التطبيق الأساسي
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
@@ -65,38 +75,34 @@ class _CreateEditDialogState<T> extends State<CreateEditDialog<T>> {
           widget.title,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.primary,
+            color: primaryColor, // تغيير لون العنوان إلى 0xFF326B80
           ),
         ),
       ),
-      contentPadding:
-      EdgeInsets.symmetric(horizontal: 24.w, vertical: 4.h),
+      contentPadding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 4.h),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: widget.formBuilder(_currentData, _onFieldChanged),
         ),
       ),
-      actionsPadding:
-      EdgeInsets.only(left: 16.w, right: 16.w, bottom: 16.h, top: 8.h),
+      actionsPadding: EdgeInsets.only(left: 16.w, right: 16.w, bottom: 16.h, top: 8.h),
       actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
         OutlinedButton(
           onPressed: _loading ? null : () => Navigator.pop(context),
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.grey[700],
-            side: BorderSide(color: Colors.grey.shade400),
-            padding:
-            EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            foregroundColor: primaryColor, // لون النص إلى 0xFF326B80
+            side: const BorderSide(color: primaryColor), // لون الحدود إلى 0xFF326B80
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
           ),
           child: Text(loc.cancel),
         ),
         ElevatedButton(
           onPressed: _loading ? null : _submit,
           style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.primary,
-            padding:
-            EdgeInsets.symmetric(horizontal: 28.w, vertical: 12.h),
+            backgroundColor: primaryColor, // لون الخلفية إلى 0xFF326B80
+            padding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 12.h),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14.r),
             ),
@@ -107,10 +113,13 @@ class _CreateEditDialogState<T> extends State<CreateEditDialog<T>> {
             height: 20.w,
             child: const CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.white,
+              color: Colors.white, // لون مؤشر التحميل أبيض
             ),
           )
-              : Text(loc.save),
+              : Text(
+            loc.save,
+            style: const TextStyle(color: Colors.white), // لون النص أبيض
+          ),
         ),
       ],
     );

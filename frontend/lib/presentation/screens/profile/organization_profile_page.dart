@@ -85,8 +85,10 @@ class _OrganizationProfilePageState extends State<OrganizationProfilePage> {
         _initControllers();
         _loading = false;
       });
-    } catch (_) {
-      setState(() => _loading = false);   // تجاهل الخطأ وأظهر القديم
+    } catch (e) {
+      // لو فشل الجلب، اعرض على الأقل القيم الممررة
+    } finally {
+      setState(() => _loading = false);
     }
   }
 

@@ -168,24 +168,14 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
         SizedBox(height: 8.h),
         ElevatedButton(
           onPressed: () {
-            if (_userType == 'organization') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => OrganizationRoomsPage(communityId: community.id),
-                ),
-              );
-            } else {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => RoomsSelectionPage(
-                    communityId: community.id,
-                    userLevel: community.level ?? 'beginner',
-                  ),
-                ),
-              );
-            }
+            final route = (_userType == 'organization')
+                ? OrganizationRoomsPage(communityId: community.id)
+                : RoomsSelectionPage(
+              communityId: community.id,
+            );
+
+            Navigator.push(context, MaterialPageRoute(builder: (_) => route))
+                .then((_) => _loadJoinedCommunities());   // ✨ إعادة التحميل
           },
         style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF326B80),

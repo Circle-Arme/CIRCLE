@@ -187,6 +187,11 @@ class ThreadModel {
 
   /// الردود المتداخلة (شجرة)
   final List<ApiReply> repliesTree;
+  final String? jobType;
+  final String? location;
+  final String? salary;
+  final String? jobLink;
+  final String? jobLinkType;
 
   ThreadModel({
     required this.id,
@@ -205,6 +210,11 @@ class ThreadModel {
     this.fileAttachment,
     required this.replies,
     required this.repliesTree,
+    this.jobType,
+    this.location,
+    this.salary,
+    this.jobLink,
+    this.jobLinkType,
   });
 
   factory ThreadModel.fromJson(Map<String, dynamic> json) => ThreadModel(
@@ -230,6 +240,12 @@ class ThreadModel {
     repliesTree: (json['replies_tree'] as List<dynamic>? ?? [])
         .map((r) => ApiReply.fromJson(r as Map<String, dynamic>))
         .toList(),
+    jobType: json['job_type'] as String?,
+    location: json['location'] as String?,
+    salary: json['salary'] as String?,
+    jobLink: json['job_link'] as String?,
+    jobLinkType: json['job_link_type'] as String?,
+
   );
 
   Map<String, dynamic> toJson() => {
@@ -240,6 +256,11 @@ class ThreadModel {
     'created_at': createdAt.toIso8601String(),
     'replies_count': repliesCount,
     'classification': classification,
+    'job_type': jobType,
+    'location': location,
+    'salary': salary,
+    'job_link': jobLink,
+    'job_link_type': jobLinkType,
     'details': details,
     'tags': tags,
     'community_id': communityId,

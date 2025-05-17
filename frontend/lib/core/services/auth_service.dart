@@ -85,6 +85,7 @@ class AuthService {
         );
       } else {
         final decoded = utf8.decode(response.bodyBytes);
+        print("🔴 Login failed → $decoded");
         final errorData = jsonDecode(decoded);
         final errorMessage = errorData['error'] ?? 'Login failed';
         throw AuthException(errorMessage);
