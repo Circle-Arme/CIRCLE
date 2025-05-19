@@ -41,6 +41,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # بتاعت ال core 
 INSTALLED_APPS = [
     'corsheaders',
+    'channels',
     'rest_framework',
     'rest_framework_simplejwt',
     'django.contrib.admin',
@@ -95,6 +96,25 @@ REST_FRAMEWORK = {
 
 
 WSGI_APPLICATION = 'CIRCLE.wsgi.application'
+ASGI_APPLICATION = 'CIRCLE.asgi.application'
+
+
+# Redis channel layer configuration
+#CHANNEL_LAYERS = {
+ #   "default": {
+  #      "BACKEND": "channels_redis.core.RedisChannelLayer",
+   #     "CONFIG": {
+    #        "hosts": [("127.0.0.1", 6379)],
+     #   },
+    #},
+#}
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}
+
 
 
 # Database
