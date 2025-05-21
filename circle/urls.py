@@ -17,6 +17,7 @@ urlpatterns = [
     path("api/", include("fields.urls")),
     path("api/", include("ChatRoom.urls")),
     path("api/", include("circle.admin_urls")),
+    path('api/alerts/', include('alerts.urls')),
 ]
 
 # أضف دعم الميديا
