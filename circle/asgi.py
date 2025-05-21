@@ -7,7 +7,7 @@ ASGI config for CIRCLE project
 import os
 
 # 1) عرِّف متغيّر الإعدادات قبل أى استيراد لدجانجو
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CIRCLE.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "circle.settings")
 
 # 2) دع Django يحمِّل الـ INSTALLED_APPS الآن
 from django.core.asgi import get_asgi_application

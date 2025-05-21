@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'accounts',
     'fields.apps.FieldsConfig',
     'ChatRoom',
+    'alerts',
 ]
 
 MIDDLEWARE = [
@@ -66,7 +67,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'CIRCLE.urls'
+ROOT_URLCONF = 'circle.urls'
 
 TEMPLATES = [
     {
@@ -95,8 +96,8 @@ REST_FRAMEWORK = {
 
 
 
-WSGI_APPLICATION = 'CIRCLE.wsgi.application'
-ASGI_APPLICATION = 'CIRCLE.asgi.application'
+WSGI_APPLICATION = 'circle.wsgi.application'
+ASGI_APPLICATION = 'circle.asgi.application'
 
 
 # Redis channel layer configuration
@@ -125,7 +126,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'circle_db',  # اسم قاعدة البيانات
         'USER': 'root',  # اسم المستخدم
-        'PASSWORD': 'admin123',  # كلمة المرور الصحيحة
+        'PASSWORD': 'AbeerAbdo@2001',  # كلمة المرور الصحيحة
         'HOST': 'localhost',
         'PORT': '3306',
     }

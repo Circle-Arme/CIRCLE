@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'CIRCLE.settings') #هنا غيرت الاسم من circle ل CIRCLE
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'circle.settings') #هنا غيرت الاسم من circle ل CIRCLE
 
 application = get_wsgi_application()
