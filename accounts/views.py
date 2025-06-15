@@ -36,10 +36,12 @@ def login_api(request):
         return Response({'error': 'البريد الإلكتروني أو كلمة المرور غير صحيحة'}, status=400)
 
     refresh = RefreshToken.for_user(user)
+    profile  = UserProfileSerializer(user.profile).data
     return Response({
         'refresh': str(refresh),
         'access': str(refresh.access_token),
         'user': UserSerializer(user).data,
+        "profile": profile,   
     })
 
 

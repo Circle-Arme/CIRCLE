@@ -13,6 +13,9 @@ def update_promotion(sender, instance, **kwargs):
     عند إضافة أو حذف لايك، نتحقق من عدد اللايكات على الرد
     فإذا وصل أو تجاوز الـ PROMOTE_THRESHOLD نجعله مروجًا، وإلا نرفعه.
     """
+    if instance.reply_id is None:
+        return
+    
     reply = instance.reply
     if reply:
         count = reply.stars.count()

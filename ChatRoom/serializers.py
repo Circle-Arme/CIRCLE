@@ -86,7 +86,11 @@ class ThreadSerializer(serializers.ModelSerializer):
     liked_by_me    = serializers.SerializerMethodField()
     creator_name   = serializers.SerializerMethodField()
     creator_id     = serializers.IntegerField(source="created_by.id", read_only=True)
-
+    room_type = serializers.CharField(source="chat_room.type", read_only=True)  # ★ جديد
+    community_id = serializers.IntegerField(   # ⭐️ جديد
+        source='chat_room.community_id',
+        read_only=True
+    )
 
     class Meta:
         model  = Thread
@@ -97,7 +101,7 @@ class ThreadSerializer(serializers.ModelSerializer):
             "replies_count", "likes_count", "liked_by_me",
             "is_job_opportunity", "job_type", "location", "salary",
             "job_link","job_link_type",
-            "classification", "tags",
+            "classification", "tags","room_type",'community_id',  # ★ جدي
         ]
 
     # ----- tree helper

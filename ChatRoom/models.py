@@ -146,13 +146,13 @@ class Like(models.Model):
                 condition=models.Q(thread__isnull=True),
                 name='uniq_user_reply_like',
             ),
-            models.CheckConstraint(          # موجود سابقًا
-                name='like_target_xor',
-                check=(
-                    models.Q(thread__isnull=False, reply__isnull=True) |
-                    models.Q(thread__isnull=True,  reply__isnull=False)
-                ),
-            ),
+           # models.CheckConstraint(          # موجود سابقًا
+            #    name='like_target_xor',
+             #   check=(
+              #      models.Q(thread__isnull=False, reply__isnull=True) |
+               #     models.Q(thread__isnull=True,  reply__isnull=False)
+              #  ),
+           # ),
         ]
         indexes = [models.Index(fields=["user", "-created_at"])]
 

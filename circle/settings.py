@@ -32,7 +32,7 @@ SECRET_KEY = 'django-insecure-7g2z7m!#xc8u--45$foxo8tf!#k5gmz5o7j%_%5mg+v=&$c)v$
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2','192.168.1.5']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2','192.168.1.5', '192.168.1.4',]
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'accounts',
     'fields.apps.FieldsConfig',
     'ChatRoom',
+    'alerts',
 ]
 
 MIDDLEWARE = [
@@ -91,6 +92,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
 }
 
 
@@ -100,20 +103,24 @@ ASGI_APPLICATION = 'CIRCLE.asgi.application'
 
 
 # Redis channel layer configuration
-#CHANNEL_LAYERS = {
- #   "default": {
-  #      "BACKEND": "channels_redis.core.RedisChannelLayer",
-   #     "CONFIG": {
-    #        "hosts": [("127.0.0.1", 6379)],
-     #   },
-    #},
-#}
-
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-    }
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [{
+                "address": "redis://127.0.0.1:6379/0",
+                "health_check_interval": 30,
+                "socket_keepalive": True,
+            }],
+        },
+    },
 }
+
+#CHANNEL_LAYERS = {
+ #   "default": {
+  #      "BACKEND": "channels.layers.InMemoryChannelLayer",
+   # }
+#}
 
 
 

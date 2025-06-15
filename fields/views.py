@@ -22,6 +22,7 @@ class FieldViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Field.objects.all()
     serializer_class = FieldSerializer
     permission_classes = [permissions.AllowAny]
+    pagination_class = None  
 
     @action(detail=True, methods=['get'], url_path='communities')
     def get_communities(self, request, pk=None):

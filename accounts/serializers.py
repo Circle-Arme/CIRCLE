@@ -35,6 +35,21 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'website',               # ← ضُمَّ الحقل الجديد
             'avatar'
         ]
+    def update(self, instance, validated_data):
+    # لو وصلنا name جديدة حدّث الـProfile وأيضاً الـUser
+        if name := validated_data.get("name"):
+            parts = name.strip().split(" ", 1)
+            instance.user.first_name = parts[0]
+            instance.user.last_name  = parts[1] if len(parts) > 1 else ""
+            instance.user.save(update_fields=["first_name", "last_name"])
+            instance.name = name
+
+    # باقى الحقول:
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
 
 
 class OrgUserCreateSerializer(serializers.Serializer):
