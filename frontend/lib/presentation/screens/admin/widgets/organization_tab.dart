@@ -15,7 +15,7 @@ import 'create_edit_dialog.dart';
 import 'delete_confirmation.dart';
 
 class OrganizationTab extends StatelessWidget {
-  const OrganizationTab({Key? key}) : super(key: key);
+  const OrganizationTab({super.key});
 
   @override
   Widget build(BuildContext context) {

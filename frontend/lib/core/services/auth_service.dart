@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../exceptions/auth_exception.dart';
+import '../utils/json_helpers.dart';
 import '../utils/shared_prefs.dart';
 import 'package:frontend/data/models/user_profile_model.dart';
 import '../utils/api_config.dart';
@@ -57,20 +58,35 @@ class AuthService {
         print('Access Token: $access');
 
         final communityResponse = await http.get(
-          //Uri.parse("http://10.0.2.2:8000/api/user-communities/"),
-          Uri.parse("http://192.168.1.5:8000/api/user-communities/"),
-          //http://192.168.1.5:8000
+          Uri.parse('${ApiConfig.baseUrl}/user-communities/'),
           headers: {
             "Authorization": "Bearer $access",
             "Content-Type": "application/json",
           },
         );
 
+        // بعد الحصول على communityResponse …
+
         bool isNewUser = false;
         if (communityResponse.statusCode == 200) {
-          final communities = jsonDecode(utf8.decode(communityResponse.bodyBytes));
-          isNewUser = (communities as List).isEmpty;
+          final decodedComm = jsonDecode(
+            utf8.decode(communityResponse.bodyBytes),
+          );
+
+          List<dynamic> commList;
+          if (decodedComm is List) {
+            commList = decodedComm;
+          } else if (decodedComm is Map &&
+              decodedComm.containsKey('results') &&
+              decodedComm['results'] is List) {
+            commList = decodedComm['results'] as List;
+          } else {
+            commList = const [];
+          }
+
+          isNewUser = asList(decodedComm).isEmpty;
         }
+
 
         final userProfile = UserProfileModel.fromJson(user);
         await SharedPrefs.saveUserProfile(userProfile); // 🟢 هذا السطر كان مفقودًا
@@ -91,6 +107,8 @@ class AuthService {
         throw AuthException(errorMessage);
       }
     } catch (e) {
+      print('🔴 LOGIN ERROR $e');
+      //print(st);
       throw AuthException('فشل تسجيل الدخول: ${e.toString()}');
     }
   }

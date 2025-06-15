@@ -10,7 +10,7 @@ import 'widgets/community_tab.dart';
 import '../../widgets/custom_drawer.dart';
 
 class AdminDashboardPage extends StatefulWidget {
-  const AdminDashboardPage({Key? key}) : super(key: key);
+  const AdminDashboardPage({super.key});
 
   @override
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();

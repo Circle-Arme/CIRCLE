@@ -1,6 +1,7 @@
 // lib/presentation/screens/profile/profile_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -8,11 +9,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:frontend/data/models/user_profile_model.dart';
 import 'package:frontend/data/models/community_model.dart';
-import 'package:frontend/core/services/UserProfileService.dart';
-import 'package:frontend/core/services/CommunityService.dart';
+import 'package:frontend/core/services/user_profile_service.dart';
+import 'package:frontend/core/services/community_service.dart';
 import 'package:frontend/core/services/upload_service.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
+import '../../blocs/alert/alert_bloc.dart';
 import '../../widgets/custom_drawer.dart';
+import '../alerts/alerts_bell.dart';
 import '../communities/communities_page.dart';
 
 /* --------------------------- الثوابت --------------------------- */
@@ -207,23 +210,8 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           Stack(
             children: [
-              IconButton(
-                icon: const Icon(Icons.notifications, color: _primaryColor),
-                onPressed: () {},
-              ),
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(
-                    color: Colors.orange,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Text('15',
-                      style: TextStyle(color: Colors.white, fontSize: 10)),
-                ),
-              ),
+              AlertsBell(bloc: context.read<AlertBloc>()),
+
             ],
           ),
         ],
@@ -241,50 +229,59 @@ class _ProfilePageState extends State<ProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // — Header —
+            // — Header —
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 40.r,
-                  backgroundColor: const Color(0xFFE1ECF4),
-                  backgroundImage: _profile.avatarUrl != null && _profile.avatarUrl!.isNotEmpty
-                      ? NetworkImage(_profile.avatarUrl!)
-                      : null,
-                  child: _profile.avatarUrl == null
-                      ? const Icon(Icons.person, size: 40, color: _primaryColor)
-                      : null,
-                ),
-                if (widget.isOwnProfile)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: _uploading ? null : _pickAndUploadAvatar,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: _primaryColor),
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: _uploading
-                            ? SizedBox(
-                            height: 16, width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.camera_alt, size: 16, color: _primaryColor),
-                      ),
+                /* ـــــــ Avatar + زر الكاميرا ـــــــ */
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    CircleAvatar(
+                      radius: 40.r,
+                      backgroundColor: const Color(0xFFE1ECF4),
+                      backgroundImage: (_profile.avatarUrl?.isNotEmpty ?? false)
+                          ? NetworkImage(_profile.avatarUrl!)
+                          : null,
+                      child: (_profile.avatarUrl?.isEmpty ?? true)
+                          ? const Icon(Icons.person, size: 40, color: _primaryColor)
+                          : null,
                     ),
-                  ),
 
+                    if (widget.isOwnProfile)
+                      Positioned(
+                        bottom: -2,   // حرّك قليلاً للخارج (اختيارى)
+                        right: -2,
+                        child: GestureDetector(
+                          onTap: _uploading ? null : _pickAndUploadAvatar,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: _primaryColor),
+                            ),
+                            child: _uploading
+                                ? const SizedBox(
+                              height: 16, width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                                : const Icon(Icons.camera_alt,
+                                size: 16, color: _primaryColor),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                /* ـــــــ نصوص الاسم والعمل … ـــــــ */
                 SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _inlineEditable(
-                        text: _profile.name.isEmpty
-                            ? loc.writeName
-                            : _profile.name,
+                        text: _profile.name.isEmpty ? loc.writeName : _profile.name,
                         controller: _nameCtl,
                         field: 'name',
                         style: TextStyle(
@@ -300,25 +297,23 @@ class _ProfilePageState extends State<ProfilePage> {
                             : _profile.workEducation,
                         controller: _workCtl,
                         field: 'workEducation',
-                        style:
-                        TextStyle(fontSize: 13.sp, color: Colors.black87),
+                        style: TextStyle(fontSize: 13.sp, color: Colors.black87),
                       ),
-                      if (_profile.position.isNotEmpty ||
-                          widget.isOwnProfile)
+                      if (_profile.position.isNotEmpty || widget.isOwnProfile)
                         _inlineEditable(
                           text: _profile.position.isEmpty
                               ? loc.writePosition
                               : _profile.position,
                           controller: _posCtl,
                           field: 'position',
-                          style: TextStyle(
-                              fontSize: 13.sp, color: Colors.black87),
+                          style: TextStyle(fontSize: 13.sp, color: Colors.black87),
                         ),
                     ],
                   ),
                 ),
               ],
             ),
+
 
             // — Description —
             SizedBox(height: 24.h),

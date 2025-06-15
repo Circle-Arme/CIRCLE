@@ -1,47 +1,51 @@
-// thread_page.dart
-import 'dart:io';
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import 'package:frontend/core/services/auth_service.dart';
 import 'package:frontend/core/services/thread_service.dart';
-import 'package:frontend/core/services/UserProfileService.dart';
 import 'package:frontend/core/services/organization_user_service.dart';
 import 'package:frontend/data/models/thread_model.dart';
+import 'package:frontend/presentation/blocs/alert/alert_bloc.dart';
+import 'package:frontend/presentation/blocs/alert/alert_event.dart';
 import 'package:frontend/presentation/screens/profile/user_profile_page.dart';
 import 'package:frontend/presentation/screens/profile/organization_profile_page.dart';
+import 'package:frontend/core/services/realtime_service.dart';
+import 'package:frontend/data/models/rt_event.dart';
 
-class ThreadPage extends StatefulWidget {
+import '../../../data/models/alert_model.dart';
+
+class ThreadDetailPage extends StatefulWidget {
   final String threadId;
-  const ThreadPage({Key? key, required this.threadId}) : super(key: key);
+  final int communityId; // إضافة communityId للتنبيهات
+
+  const ThreadDetailPage({super.key, required this.threadId, required this.communityId});
 
   @override
-  State<ThreadPage> createState() => _ThreadPageState();
+  State<ThreadDetailPage> createState() => _ThreadDetailPageState();
 }
 
-class _ThreadPageState extends State<ThreadPage> {
+class _ThreadDetailPageState extends State<ThreadDetailPage> {
   late Future<ThreadModel> _threadFuture;
   ThreadModel? _thread;
-
   final List<_Message> _messages = [];
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  StreamSubscription<RTEvent>? _rtSub;
 
   bool _isLiked = false;
   int _likesCount = 0;
   String? _currentUserId;
-
   final Map<String, int> _replyLikesCount = {};
   final Set<String> _likedReplies = {};
 
   _Message? _replyingTo;
   PlatformFile? _replyFile;
-
   bool _showScrollToBottom = false;
   int? _selectedMsgIndex;
 
@@ -52,12 +56,40 @@ class _ThreadPageState extends State<ThreadPage> {
     super.initState();
     _threadFuture = ThreadService.getThreadById(widget.threadId);
     _loadThread();
+    _startRealTime();
     _scrollController.addListener(() {
       setState(() {
-        _showScrollToBottom =
-            _scrollController.offset <
-                _scrollController.position.maxScrollExtent - 50;
+        _showScrollToBottom = _scrollController.offset < _scrollController.position.maxScrollExtent - 50;
       });
+    });
+  }
+
+  Future<void> _startRealTime() async {
+    final thread = await _threadFuture;
+    await RealTimeService.connectThread(widget.threadId);
+    _rtSub = RealTimeService.stream().listen((event) {
+      if (event.type == 'reply_added' && event.payload['thread_id'].toString() == widget.threadId) {
+        final reply = ReplyModel.fromJson(event.payload['reply']);
+        setState(() {
+          _messages.add(_Message.fromApi(ApiReply.fromJson(event.payload['reply']), 1, _currentUserId));
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        });
+      } else if (event.type == 'reply_like_toggled' && event.payload['thread_id'].toString() == widget.threadId) {
+        setState(() {
+          _replyLikesCount[event.payload['id'].toString()] = event.payload['likes'];
+        });
+      } else if (event.type == 'thread_like_toggled' && event.payload['id'].toString() == widget.threadId) {
+        setState(() {
+          _likesCount = event.payload['likes'];
+          _isLiked = event.payload['liked_by_me'] ?? _isLiked;
+        });
+      } else if (event.type == 'alert_pushed') {
+        context.read<AlertBloc>().add(NewAlertPushed(AlertModel.fromJson(event.payload['alert'])));
+      }
     });
   }
 
@@ -68,15 +100,16 @@ class _ThreadPageState extends State<ThreadPage> {
     _likesCount = _thread!.likesCount;
     _isLiked = _thread!.likedByMe;
 
-    _messages
-      ..clear()
-      ..add(_Message.fromThread(_thread!, _currentUserId));
+    _messages.clear();
+    _messages.add(_Message.fromThread(_thread!, _currentUserId));
 
     void walk(ApiReply r, int depth) {
       _replyLikesCount[r.id] = r.likesCount;
       if (r.isLiked) _likedReplies.add(r.id);
       _messages.add(_Message.fromApi(r, depth, _currentUserId));
-      for (final c in r.children) walk(c, depth + 1);
+      for (final c in r.children) {
+        walk(c, depth + 1);
+      }
     }
 
     for (final r in _thread!.repliesTree) walk(r, 1);
@@ -146,12 +179,9 @@ class _ThreadPageState extends State<ThreadPage> {
     final m = _messages[index];
     final isSelected = _selectedMsgIndex == index;
     return GestureDetector(
-      onTap: () => setState(() =>
-      _selectedMsgIndex = isSelected ? null : index),
+      onTap: () => setState(() => _selectedMsgIndex = isSelected ? null : index),
       child: Stack(
-        alignment: m.isThread
-            ? Alignment.topRight
-            : (m.isMe ? Alignment.topRight : Alignment.topLeft),
+        alignment: m.isThread ? Alignment.topRight : (m.isMe ? Alignment.topRight : Alignment.topLeft),
         clipBehavior: Clip.none,
         children: [
           _buildMsgContent(m, loc),
@@ -165,12 +195,11 @@ class _ThreadPageState extends State<ThreadPage> {
     final timeText = _timeFmt.format(m.timestamp);
     final bool liked = m.isThread ? _isLiked : _likedReplies.contains(m.id);
     final int likes = m.isThread ? _likesCount : (_replyLikesCount[m.id] ?? 0);
-    final Color primaryColor = const Color(0xFF326B80); // لون التطبيق الأساسي
-    final Color bluishGray = const Color(0xFFE9F1F2); // رمادي مزرق للردود
+    final Color primaryColor = const Color(0xFF326B80);
+    final Color bluishGray = const Color(0xFFE9F1F2);
 
     Future<void> _navigateToProfile() async {
       try {
-        //final profile = await UserProfileService.fetchUserProfileById(m.userId);
         final profile = await OrganizationUserService.fetchUserProfileById(m.userId);
         final currentUserId = await AuthService.getCurrentUserId();
         final isOwnProfile = m.userId == currentUserId;
@@ -191,10 +220,7 @@ class _ThreadPageState extends State<ThreadPage> {
         }
 
         if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => profilePage),
-          );
+          Navigator.push(context, MaterialPageRoute(builder: (_) => profilePage));
         }
       } catch (e) {
         if (mounted) {
@@ -211,7 +237,7 @@ class _ThreadPageState extends State<ThreadPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!m.isMe) // إخفاء الاسم إذا كان المرسل هو المستخدم
+            if (!m.isMe)
               Padding(
                 padding: EdgeInsets.only(left: 8.w, bottom: 4.h),
                 child: GestureDetector(
@@ -254,8 +280,7 @@ class _ThreadPageState extends State<ThreadPage> {
                       SizedBox(height: 8.h),
                       if (m.jobLink != null) ...[
                         GestureDetector(
-                          onTap: () => launchUrl(Uri.parse(m.jobLink!),
-                              mode: LaunchMode.externalApplication),
+                          onTap: () => launchUrl(Uri.parse(m.jobLink!), mode: LaunchMode.externalApplication),
                           child: Row(
                             children: [
                               Icon(Icons.link, size: 16.sp, color: Color(0xFF326B80)),
@@ -273,7 +298,6 @@ class _ThreadPageState extends State<ThreadPage> {
                         ),
                         SizedBox(height: 8.h),
                       ],
-                      //Text(m.text, style: TextStyle(fontSize: 14.sp)),
                       if (m.fileUrl != null)
                         Padding(
                           padding: EdgeInsets.only(top: 8.h),
@@ -320,7 +344,7 @@ class _ThreadPageState extends State<ThreadPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!m.isMe) // إخفاء الاسم إذا كان المرسل هو المستخدم
+            if (!m.isMe)
               Padding(
                 padding: EdgeInsets.only(bottom: 4.h),
                 child: GestureDetector(
@@ -370,19 +394,18 @@ class _ThreadPageState extends State<ThreadPage> {
                       m.text,
                       style: TextStyle(
                         fontSize: 14.sp,
-                        color: m.isMe ? Colors.white : primaryColor, // تغيير لون النص هنا
+                        color: m.isMe ? Colors.white : primaryColor,
                       ),
                     ),
                     if (m.fileUrl != null)
                       Padding(
                         padding: EdgeInsets.only(top: 6.h),
                         child: _fileWidget(m.fileUrl!, loc),
-
                       ),
                     SizedBox(height: 4.h),
                     Text(
                       timeText,
-                      style: TextStyle(fontSize: 11.sp, color: m.isMe ? Colors.white70 : Colors.grey,),
+                      style: TextStyle(fontSize: 11.sp, color: m.isMe ? Colors.white70 : Colors.grey),
                     ),
                   ],
                 ),
@@ -433,15 +456,11 @@ class _ThreadPageState extends State<ThreadPage> {
               icon: Icon(
                 isThread
                     ? (_isLiked ? Icons.favorite : Icons.favorite_border)
-                    : (_likedReplies.contains(m.id)
-                    ? Icons.thumb_up
-                    : Icons.thumb_up_off_alt),
+                    : (_likedReplies.contains(m.id) ? Icons.thumb_up : Icons.thumb_up_off_alt),
                 size: 20,
                 color: isThread
                     ? (_isLiked ? Color(0xFF326B80) : Colors.grey)
-                    : (_likedReplies.contains(m.id)
-                    ? Color(0xFF326B80)
-                    : Colors.grey),
+                    : (_likedReplies.contains(m.id) ? Color(0xFF326B80) : Colors.grey),
               ),
               onPressed: () {
                 setState(() {
@@ -460,26 +479,10 @@ class _ThreadPageState extends State<ThreadPage> {
     );
   }
 
-  Widget _avatar(String n) {
-    final color =
-        Colors.primaries[n.hashCode % Colors.primaries.length].shade200;
-    return CircleAvatar(
-      radius: 16.r,
-      backgroundColor: color,
-      child: Text(
-        n.isNotEmpty ? n[0].toUpperCase() : '?',
-        style: TextStyle(
-            fontSize: 12.sp, fontWeight: FontWeight.w600, color: Colors.white),
-      ),
-    );
-  }
-
   Widget _fileWidget(String url, AppLocalizations loc) {
-    final img = ['.png', '.jpg', '.jpeg', '.gif']
-        .any((ext) => url.toLowerCase().endsWith(ext));
+    final img = ['.png', '.jpg', '.jpeg', '.gif'].any((ext) => url.toLowerCase().endsWith(ext));
     return InkWell(
-      onTap: () =>
-          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       child: img
           ? ClipRRect(
         borderRadius: BorderRadius.circular(12.r),
@@ -505,8 +508,7 @@ class _ThreadPageState extends State<ThreadPage> {
         ),
         child: Row(
           children: [
-            Icon(Icons.insert_drive_file,
-                color: Color(0xFF326B80)),
+            Icon(Icons.insert_drive_file, color: Color(0xFF326B80)),
             SizedBox(width: 8.w),
             Expanded(
               child: Text(
@@ -536,8 +538,7 @@ class _ThreadPageState extends State<ThreadPage> {
             if (_replyingTo != null)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding:
-                EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                 margin: EdgeInsets.only(bottom: 8.h),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
@@ -557,8 +558,7 @@ class _ThreadPageState extends State<ThreadPage> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close,
-                          size: 20.r, color: Colors.grey),
+                      icon: Icon(Icons.close, size: 20.r, color: Colors.grey),
                       onPressed: () => setState(() => _replyingTo = null),
                     ),
                   ],
@@ -567,8 +567,7 @@ class _ThreadPageState extends State<ThreadPage> {
             if (_replyFile != null)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding:
-                EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                 margin: EdgeInsets.only(bottom: 8.h),
                 decoration: BoxDecoration(
                   color: Colors.green.shade50,
@@ -576,8 +575,7 @@ class _ThreadPageState extends State<ThreadPage> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.attach_file,
-                        size: 20.r, color: Color(0xFF4B8697)),
+                    Icon(Icons.attach_file, size: 20.r, color: Color(0xFF4B8697)),
                     SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
@@ -587,8 +585,7 @@ class _ThreadPageState extends State<ThreadPage> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close,
-                          size: 20.r, color: Colors.grey),
+                      icon: Icon(Icons.close, size: 20.r, color: Colors.grey),
                       onPressed: () => setState(() => _replyFile = null),
                     ),
                   ],
@@ -597,8 +594,7 @@ class _ThreadPageState extends State<ThreadPage> {
             Row(
               children: [
                 IconButton(
-                  icon:
-                  Icon(Icons.attach_file, size: 24.r, color: Colors.grey),
+                  icon: Icon(Icons.attach_file, size: 24.r, color: Colors.grey),
                   onPressed: _pickReplyFile,
                 ),
                 Expanded(
@@ -620,8 +616,7 @@ class _ThreadPageState extends State<ThreadPage> {
                       decoration: InputDecoration(
                         hintText: loc.writeMessage,
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16.w, vertical: 12.h),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                       ),
                       style: TextStyle(fontSize: 14.sp),
                     ),
@@ -707,7 +702,7 @@ class _ThreadPageState extends State<ThreadPage> {
           ),
           if (_showScrollToBottom)
             Positioned(
-              right: 16.w, // نقل الزر إلى اليمين لتحسين تجربة المستخدم
+              right: 16.w,
               bottom: 80.h,
               child: FloatingActionButton(
                 mini: true,
@@ -726,6 +721,7 @@ class _ThreadPageState extends State<ThreadPage> {
     _controller.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
+    _rtSub?.cancel();
     super.dispose();
   }
 }
@@ -741,7 +737,7 @@ class _Message {
   final bool isThread;
   final String? fileUrl;
   final bool isLiked;
-  final _Message? replyTo; // يدعم الاقتباس داخل الفقاعة
+  final _Message? replyTo;
   final String? jobType;
   final String? location;
   final String? salary;
@@ -765,54 +761,50 @@ class _Message {
     this.salary,
     this.jobLink,
     this.jobLinkType,
-
   });
 
-  factory _Message.fromThread(ThreadModel t, String? currentUserId) =>
-      _Message(
-        id: t.id,
-        userId: t.creatorId,
-        depth: 0,
-        text: t.details,
-        senderName: t.creatorName,
-        timestamp: t.createdAt,
-        isMe: t.creatorId == currentUserId,
-        isThread: true,
-        fileUrl: t.fileAttachment,
-        isLiked: t.likedByMe,
-        jobType: t.jobType,
-        location: t.location,
-        salary: t.salary,
-        jobLink: t.jobLink,
-        jobLinkType: t.jobLinkType,
-      );
+  factory _Message.fromThread(ThreadModel t, String? currentUserId) => _Message(
+    id: t.id,
+    userId: t.creatorId,
+    depth: 0,
+    text: t.details,
+    senderName: t.creatorName,
+    timestamp: t.createdAt,
+    isMe: t.creatorId == currentUserId,
+    isThread: true,
+    fileUrl: t.fileAttachment,
+    isLiked: t.likedByMe,
+    jobType: t.jobType,
+    location: t.location,
+    salary: t.salary,
+    jobLink: t.jobLink,
+    jobLinkType: t.jobLinkType,
+  );
 
-  factory _Message.fromApi(
-      ApiReply r, int depth, String? currentUserId) =>
-      _Message(
-        id: r.id,
-        userId: r.creatorId,
-        depth: depth,
-        text: r.text,
-        senderName: r.creatorName,
-        timestamp: r.createdAt,
-        isMe: r.creatorId == currentUserId,
-        isThread: false,
-        fileUrl: r.file,
-        isLiked: r.isLiked,
-        replyTo: r.parentSnippet == null
-            ? null
-            : _Message(
-          id:         r.parentSnippet!.id,
-          userId:     r.parentSnippet!.creatorId,
-          depth:      depth - 1,
-          text:       r.parentSnippet!.text,
-          senderName: r.parentSnippet!.creatorName,
-          timestamp:  r.createdAt,      // لا أهمية كبيرة للوقت هنا
-          isMe:       r.parentSnippet!.creatorId == currentUserId,
-          isThread:   false,
-          fileUrl:    r.parentSnippet!.file,
-          isLiked:    false,
-        ),
-      );
+  factory _Message.fromApi(ApiReply r, int depth, String? currentUserId) => _Message(
+    id: r.id,
+    userId: r.creatorId,
+    depth: depth,
+    text: r.text,
+    senderName: r.creatorName,
+    timestamp: r.createdAt,
+    isMe: r.creatorId == currentUserId,
+    isThread: false,
+    fileUrl: r.file,
+    isLiked: r.isLiked,
+    replyTo: r.parentSnippet == null
+        ? null
+        : _Message(
+      id: r.parentSnippet!.id,
+      userId: r.parentSnippet!.creatorId,
+      depth: depth - 1,
+      text: r.parentSnippet!.text,
+      senderName: r.parentSnippet!.creatorName,
+      timestamp: r.createdAt,
+      isMe: r.parentSnippet!.creatorId == currentUserId,
+      isThread: false,
+      fileUrl: r.parentSnippet!.file,
+      isLiked: false,
+    ),
+  );
 }

@@ -303,7 +303,14 @@
               "welcomeLogo": "",
               "changeLanguage": "Change Language",
               "jobLinkType": "Job link type",
-              "invalidJobLink":"Invalid job link"
+              "invalidJobLink":"Invalid job link",
+              "markAllRead":"Mark all read",
+              "noNotifications":"no notifications",
+              "noThreadId": "No thread ID available.",
+              "previousAttachment":"previous attachment",
+              "fileAttachmentName":"file attachment name",
+              "clear": "Clear"
+
 
 
 

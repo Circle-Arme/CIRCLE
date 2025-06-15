@@ -85,7 +85,7 @@ class WelcomePage extends StatelessWidget {
                                         if (item['isLogo'] == true) ...[
                                           Image.asset(
                                             item['image'],
-                                            height: 120,
+                                            height: 110,
                                             fit: BoxFit.contain,
                                           ),
                                         ] else ...[

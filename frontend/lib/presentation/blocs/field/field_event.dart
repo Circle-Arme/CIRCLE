@@ -9,6 +9,7 @@ class CreateField extends FieldEvent {
   final String description;
   final String? imagePath;
 
+
   CreateField(this.name, this.description, this.imagePath);
 }
 
@@ -17,8 +18,11 @@ class UpdateField extends FieldEvent {
   final String name;
   final String description;
   final String? imagePath;
+  final bool   clearImage;
 
-  UpdateField(this.id, this.name, this.description, this.imagePath);
+  UpdateField(this.id, this.name, this.description, this.imagePath, {
+    this.clearImage = false,
+  });
 }
 
 class DeleteField extends FieldEvent {

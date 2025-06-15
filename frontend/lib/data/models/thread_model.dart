@@ -1,6 +1,5 @@
 // lib/data/models/thread_model.dart
 
-import 'package:flutter/foundation.dart';
 
 ///────────────────────────────────────────
 /// الموديل المسطّح للردود (ReplyModel)
@@ -13,7 +12,7 @@ class ReplyModel {
   final String? file;
   final int likesCount;      // ← جديد: عدّاد الإعجابات
   final bool isPromoted;     // ← جديد: حالة الترويج (رفع الرد)
-
+  final bool likedByMe;
 
   ReplyModel({
     required this.id,
@@ -24,6 +23,7 @@ class ReplyModel {
     this.file,
     required this.likesCount,
     required this.isPromoted,
+    this.likedByMe = false,
   });
 
   factory ReplyModel.fromJson(Map<String, dynamic> json) => ReplyModel(
@@ -36,6 +36,7 @@ class ReplyModel {
     file: json['file'] as String?,
     likesCount: json['likes_count'] as int? ?? 0,
     isPromoted: json['is_promoted'] as bool? ?? false,
+    likedByMe: json['liked_by_me'] ?? false,
   );
 
   Map<String, dynamic> toJson() => {
@@ -181,6 +182,8 @@ class ThreadModel {
   final int likesCount;
   final bool likedByMe;
   final String? fileAttachment;
+  String? get fileAttachmentName =>
+      fileAttachment?.split('/').last;
 
   /// الردود المسطّحة
   final List<ReplyModel> replies;
@@ -222,18 +225,16 @@ class ThreadModel {
     title: json['title'] as String? ?? '',
     creatorName: json['creator_name'] as String? ?? '',
     creatorId: (json['created_by'] ?? '').toString(),
-    createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
-        DateTime.now(),
+    createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
     repliesCount: json['replies_count'] as int? ?? 0,
     classification: json['classification'] as String? ?? '',
     details: json['details'] as String? ?? '',
     tags: List<String>.from(json['tags'] as List<dynamic>? ?? []),
-    communityId:
-    (json['community_id'] ?? json['community'] ?? '').toString(),
+    communityId: (json['community_id'] ?? json['community'] ?? '').toString(),
     isJobOpportunity: json['is_job_opportunity'] as bool? ?? false,
     likesCount: json['likes_count'] as int? ?? 0,
-    likedByMe:     json['liked_by_me'] as bool? ?? false,
-    fileAttachment: json['file_attachment'] as String?,
+    likedByMe: json['liked_by_me'] as bool? ?? false,
+    fileAttachment: json['file_attachment'] as String?, // تصحيح الاسم ليتماشى مع الـ Backend
     replies: (json['replies'] as List<dynamic>? ?? [])
         .map((r) => ReplyModel.fromJson(r as Map<String, dynamic>))
         .toList(),
@@ -245,7 +246,6 @@ class ThreadModel {
     salary: json['salary'] as String?,
     jobLink: json['job_link'] as String?,
     jobLinkType: json['job_link_type'] as String?,
-
   );
 
   Map<String, dynamic> toJson() => {
@@ -270,4 +270,49 @@ class ThreadModel {
     'replies': replies.map((r) => r.toJson()).toList(),
     'replies_tree': repliesTree.map((r) => r.toJson()).toList(),
   };
+  // ─────────────────────────── copyWith ───────────────────────────
+  ThreadModel copyWith({
+    String? title,
+    String? details,
+    String? classification,
+    List<String>? tags,
+    bool? isJobOpportunity,
+    String? jobType,
+    String? location,
+    String? salary,
+    String? jobLink,
+    String? jobLinkType,
+    int? likesCount,
+    bool? likedByMe,
+    int? repliesCount,
+    List<ReplyModel>? replies,
+    List<ApiReply>? repliesTree,
+  }) {
+    return ThreadModel(
+      id: id,
+      title: title ?? this.title,
+      creatorName: creatorName,
+      creatorId: creatorId,
+      createdAt: createdAt,
+      repliesCount: repliesCount ?? this.repliesCount,
+      classification: classification ?? this.classification,
+      details: details ?? this.details,
+      tags: tags ?? this.tags,
+      communityId: communityId,
+      isJobOpportunity: isJobOpportunity ?? this.isJobOpportunity,
+      likesCount: likesCount ?? this.likesCount,
+      likedByMe: likedByMe ?? this.likedByMe,
+      fileAttachment: fileAttachment,
+      replies: replies ?? this.replies,
+      repliesTree: repliesTree ?? this.repliesTree,
+      jobType: jobType ?? this.jobType,
+      location: location ?? this.location,
+      salary: salary ?? this.salary,
+      jobLink: jobLink ?? this.jobLink,
+      jobLinkType: jobLinkType ?? this.jobLinkType,
+    );
+  }
+
+
 }
+

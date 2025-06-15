@@ -303,7 +303,15 @@
               "welcomeLogo": "",
               "changeLanguage": "تغيير اللغة",
               "jobLinkType": "نوع رابط الوظيفة",
-              "invalidJobLink":"رابط غير صالح"
+              "invalidJobLink":"رابط غير صالح",
+              "markAllRead":"تحديد الكل مقروءة",
+              "noNotifications":"لا يوجد تنبيهات",
+              "noThreadId": "لا يوجد معرف خيط متاح.",
+              "previousAttachment":"المرفق السابق",
+              "fileAttachmentName":"اسم الملف المرفق",
+              "clear": "Clear"
+
+
 
 
 

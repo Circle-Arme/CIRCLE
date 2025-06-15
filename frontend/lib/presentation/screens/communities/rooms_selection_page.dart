@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'package:frontend/core/services/CommunityService.dart';
+import 'package:frontend/core/services/community_service.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
 import 'package:frontend/data/models/user_profile_model.dart';
 import 'package:frontend/presentation/widgets/custom_drawer.dart';
@@ -189,6 +189,7 @@ class RoomsSelectionPage extends StatelessWidget {
       ),
     );
   }
+  
 
   Future<void> _updateLevel(BuildContext context, String newLevel) async {
     final loc = AppLocalizations.of(context)!;

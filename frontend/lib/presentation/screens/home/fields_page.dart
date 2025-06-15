@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:frontend/data/models/area_model.dart';
 import 'package:frontend/core/services/area_service.dart';
+import '../../blocs/alert/alert_bloc.dart';
 import '../../widgets/area_card.dart';
 import '../../widgets/custom_drawer.dart';
 import '../../theme/app_colors.dart';
+import '../alerts/alerts_bell.dart';
 import '../communities/communities_page.dart';
 import '../profile/user_profile_page.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
@@ -81,11 +84,7 @@ class _FieldsPageState extends State<FieldsPage> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            color: AppColors.primaryColor,
-            onPressed: () {},
-          ),
+          AlertsBell(bloc: context.read<AlertBloc>()),
         ],
       ),
       body: Stack(

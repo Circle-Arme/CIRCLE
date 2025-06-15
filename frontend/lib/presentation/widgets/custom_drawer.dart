@@ -22,7 +22,7 @@ import 'package:frontend/presentation/blocs/language/language_event.dart';
 import '../theme/app_colors.dart';
 
 class CustomDrawer extends StatefulWidget {
-  const CustomDrawer({Key? key}) : super(key: key);
+  const CustomDrawer({super.key});
 
   @override
   State<CustomDrawer> createState() => _CustomDrawerState();

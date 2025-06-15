@@ -1,12 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'package:frontend/data/models/community_model.dart';
-
-import '../../../core/services/CommunityService.dart';
+import 'package:frontend/core/services/community_service.dart';
 import 'community_event.dart';
 import 'community_state.dart';
-
-
 
 class CommunityBloc extends Bloc<CommunityEvent, CommunityState> {
   final CommunityService communityService;
@@ -21,7 +17,12 @@ class CommunityBloc extends Bloc<CommunityEvent, CommunityState> {
   Future<void> _onFetchCommunities(FetchCommunities event, Emitter<CommunityState> emit) async {
     emit(state.copyWith(isLoading: true));
     try {
-      final communities = await CommunityService.fetchAdminCommunities();
+      List<CommunityModel> communities;
+      if (event.fieldId != null) {
+        communities = await CommunityService.fetchCommunities(event.fieldId.toString());
+      } else {
+        communities = await CommunityService.fetchAdminCommunities();
+      }
       emit(state.copyWith(isLoading: false, communities: communities, error: null));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
@@ -42,7 +43,13 @@ class CommunityBloc extends Bloc<CommunityEvent, CommunityState> {
   Future<void> _onUpdateCommunity(UpdateCommunity event, Emitter<CommunityState> emit) async {
     emit(state.copyWith(isLoading: true));
     try {
-      await CommunityService.updateCommunity(event.id, event.fieldId, event.name, event.imagePath);
+      await CommunityService.updateCommunity(
+        event.id,
+        event.fieldId,
+        event.name,
+        event.imagePath,
+        clearImage: event.clearImage, // NEW: Pass the clearImage flag
+      );
       final communities = await CommunityService.fetchAdminCommunities();
       emit(state.copyWith(isLoading: false, communities: communities, error: null));
     } catch (e) {

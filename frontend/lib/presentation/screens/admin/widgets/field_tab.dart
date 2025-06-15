@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:frontend/core/services/field_service.dart';
 import 'package:frontend/data/models/area_model.dart';
 import 'package:frontend/presentation/widgets/search_bar_widget.dart';
+import 'package:mime/mime.dart';
 
 import '../../../blocs/field/field_bloc.dart';
 import '../../../blocs/field/field_event.dart';
@@ -18,8 +19,9 @@ import 'create_edit_dialog.dart';
 import 'delete_confirmation.dart';
 
 
+
 class FieldTab extends StatelessWidget {
-  const FieldTab({Key? key}) : super(key: key);
+  const FieldTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -40,16 +42,38 @@ class _FieldTabContent extends StatefulWidget {
 class _FieldTabContentState extends State<_FieldTabContent> {
   String _searchQuery = '';
 
+  Future<String?> pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final file = File(pickedFile.path);
+      if (!await file.exists()) {
+        throw Exception('File does not exist');
+      }
+      final size = await file.length();
+      if (size > 5 * 1024 * 1024) {
+        throw Exception('Image size is too large');
+      }
+      final mime = lookupMimeType(pickedFile.path);
+      if (mime != 'image/jpeg' && mime != 'image/png') {
+        throw Exception('Unsupported image format');
+      }
+      return pickedFile.path;
+    }
+    return null;
+  }
+
   Future<void> _openCreateOrEdit(BuildContext context, [AreaModel? field]) async {
     final loc = AppLocalizations.of(context)!;
+    const primaryColor = Color(0xFF326B80);
 
     final result = await showDialog<bool>(
       context: context,
       builder: (_) {
         String? imagePath = field?.image;
+        bool removeOld = false; // NEW: Flag to track image removal
         final titleController = TextEditingController(text: field?.title ?? '');
         final descController = TextEditingController(text: field?.subtitle ?? '');
-        const primaryColor = Color(0xFF326B80); // لون التطبيق الأساسي
 
         return CreateEditDialog<AreaModel>(
           title: field == null ? loc.createField : loc.editField,
@@ -57,6 +81,27 @@ class _FieldTabContentState extends State<_FieldTabContent> {
           formBuilder: (data, onChanged) {
             return StatefulBuilder(
               builder: (context, setState) {
+                Future<void> _choose() async {
+                  final path = await pickImage();
+                  if (path != null) {
+                    setState(() {
+                      imagePath = path;
+                      removeOld = false; // Reset removal flag
+                    });
+                    onChanged(data.copyWith(image: path));
+                    print('Image updated: $imagePath');
+                  }
+                }
+
+                void _clear() {
+                  setState(() {
+                    imagePath = null;
+                    removeOld = true; // Set flag to clear image
+                  });
+                  onChanged(data.copyWith(image: null));
+                  print('Image cleared');
+                }
+
                 return Form(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -113,24 +158,30 @@ class _FieldTabContentState extends State<_FieldTabContent> {
                         },
                       ),
                       SizedBox(height: 16.h),
-                      ElevatedButton(
-                        onPressed: () async {
-                          final picker = ImagePicker();
-                          final picked = await picker.pickImage(source: ImageSource.gallery);
-                          if (picked != null) {
-                            setState(() => imagePath = picked.path);
-                            onChanged(data.copyWith(image: imagePath));
-                            print('Image updated: $imagePath');
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.r),
+                      Row(
+                        children: [
+                          ElevatedButton(
+                            onPressed: _choose,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14.r),
+                              ),
+                            ),
+                            child: Text(loc.chooseImage),
                           ),
-                        ),
-                        child: Text(loc.chooseImage),
+                          const SizedBox(width: 12),
+                          if (imagePath != null && imagePath!.isNotEmpty)
+                            OutlinedButton.icon(
+                              onPressed: _clear,
+                              icon: const Icon(Icons.clear, size: 18, color: Colors.red),
+                              label: Text(loc.clear),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                              ),
+                            ),
+                        ],
                       ),
                       if (imagePath != null && imagePath!.isNotEmpty) ...[
                         SizedBox(height: 8.h),
@@ -139,8 +190,10 @@ class _FieldTabContentState extends State<_FieldTabContent> {
                             border: Border.all(color: primaryColor),
                             borderRadius: BorderRadius.circular(8.r),
                           ),
-                          child: Image.file(
-                            File(imagePath!),
+                          child: Image(
+                            image: imagePath!.startsWith('http')
+                                ? NetworkImage(imagePath!) as ImageProvider
+                                : FileImage(File(imagePath!)),
                             height: 100.h,
                             fit: BoxFit.cover,
                           ),
@@ -157,14 +210,20 @@ class _FieldTabContentState extends State<_FieldTabContent> {
             final updatedDesc = descController.text.trim();
             final updatedImage = (imagePath == null || imagePath!.trim().isEmpty) ? null : imagePath;
 
-            print('Submitting: title=$updatedTitle, subtitle=$updatedDesc, image=$updatedImage');
+            print('Submitting: title=$updatedTitle, subtitle=$updatedDesc, image=$updatedImage, clearImage=$removeOld');
             if (updatedTitle.isEmpty || updatedDesc.isEmpty) {
               throw Exception(loc.enterFieldName);
             }
             if (field == null) {
               context.read<FieldBloc>().add(CreateField(updatedTitle, updatedDesc, updatedImage));
             } else {
-              context.read<FieldBloc>().add(UpdateField(model.id, updatedTitle, updatedDesc, updatedImage));
+              context.read<FieldBloc>().add(UpdateField(
+                model.id,
+                updatedTitle,
+                updatedDesc,
+                updatedImage,
+                clearImage: removeOld, // NEW: Pass the clearImage flag
+              ));
             }
             return Future.value();
           },

@@ -6,6 +6,7 @@ import 'package:mime/mime.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
 import 'package:frontend/data/models/area_model.dart';
 import '../utils/api_config.dart';
+import '../utils/json_helpers.dart';
 import 'auth_http.dart';
 import 'auth_service.dart';
 
@@ -28,8 +29,9 @@ class FieldService {
     );
 
     if (response.statusCode == 200) {
-      final List<dynamic> jsonData = jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonData.map((json) => AreaModel.fromJson(json)).toList();
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      final list    = asList(decoded);                       // ← الجديد
+      return list.map((j) => AreaModel.fromJson(j)).toList();
     } else {
       final decoded = utf8.decode(response.bodyBytes);
       try {
@@ -108,50 +110,39 @@ class FieldService {
 
 
   static Future<void> updateField(
-      int    fieldId,
+      int fieldId,
       String name,
       String description,
-      String? imagePath,
-      ) async {
-
+      String? imagePath, {
+        bool clearImage = false, // NEW: Flag to clear the existing image
+      }) async {
     final token = await SharedPrefs.getAccessToken();
-    if (token == null) throw Exception("التوكن غير متوفر");
+    if (token == null) throw Exception("No authentication token available");
 
-    final uri = Uri.parse('$_fieldsAdminBase/$fieldId/');   // ← أضف id
+    final uri = Uri.parse('$_fieldsAdminBase/$fieldId/');
+    final req = http.MultipartRequest('PUT', uri)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['name'] = name
+      ..fields['description'] = description;
+
+    if (clearImage) {
+      req.fields['clear_image'] = 'true'; // NEW: Signal to backend to clear image
+    }
 
     if (imagePath != null) {
-      final req = http.MultipartRequest('PUT', uri)
-        ..headers['Authorization'] = 'Bearer $token'
-        ..fields['name']        = name
-        ..fields['description'] = description;
-
-      final mime  = lookupMimeType(imagePath) ?? 'image/jpeg';
+      final mime = lookupMimeType(imagePath) ?? 'image/jpeg';
       final parts = mime.split('/');
-
       req.files.add(await http.MultipartFile.fromPath(
         'image',
         imagePath,
         contentType: MediaType(parts[0], parts[1]),
       ));
+    }
 
-      final resp = await AuthHttp.sendMultipartWithAuth(req);
-      if (resp.statusCode != 200) {
-        final body = await resp.stream.bytesToString();
-        throw Exception('فشل تعديل المجال: $body');
-      }
-    } else {
-      final resp = await AuthHttp.patch(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type':  'application/json',
-        },
-        body: jsonEncode({"name": name, "description": description}),
-      );
-
-      if (resp.statusCode != 200) {
-        throw Exception('فشل تعديل المجال: ${resp.body}');
-      }
+    final resp = await AuthHttp.sendMultipartWithAuth(req);
+    if (resp.statusCode != 200) {
+      final body = await resp.stream.bytesToString();
+      throw Exception('Failed to update field: $body');
     }
   }
 

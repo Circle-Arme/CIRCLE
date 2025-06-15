@@ -8,7 +8,7 @@ import 'package:frontend/presentation/blocs/auth/auth_state.dart';
 import '../home/fields_page.dart';
 
 class CreateAccountPage extends StatefulWidget {
-  const CreateAccountPage({Key? key}) : super(key: key);
+  const CreateAccountPage({super.key});
 
   @override
   _CreateAccountPageState createState() => _CreateAccountPageState();

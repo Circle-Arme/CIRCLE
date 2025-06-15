@@ -10,6 +10,7 @@ class JobThreadsListWidget extends StatelessWidget {
   final List<ThreadModel> Function(List<ThreadModel>) filterThreads;
   final Future<void> Function() onRefresh;
   final int currentUserId;
+  final int communityId;
   final void Function(ThreadModel) onEdit;
   final Future<void> Function(ThreadModel) onDelete;
 
@@ -19,6 +20,7 @@ class JobThreadsListWidget extends StatelessWidget {
     required this.filterThreads,
     required this.onRefresh,
     required this.currentUserId,
+    required this.communityId,
     required this.onEdit,
     required this.onDelete,
   }) : super(key: key);
@@ -56,7 +58,7 @@ class JobThreadsListWidget extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ThreadPage(threadId: thread.id),
+                        builder: (_) => ThreadDetailPage(threadId: thread.id, communityId: communityId,),
                       ),
                     );
                   },

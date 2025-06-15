@@ -12,7 +12,7 @@ import 'package:frontend/presentation/blocs/auth/auth_event.dart';
 import 'package:frontend/presentation/blocs/auth/auth_state.dart';
 
 import 'package:frontend/core/utils/shared_prefs.dart';
-import 'package:frontend/core/services/CommunityService.dart';
+import 'package:frontend/core/services/community_service.dart';
 
 import '../admin/admin_dashboard_page.dart';
 import '../home/fields_page.dart';

@@ -1,22 +1,24 @@
-// lib/core/utils/api_config.dart
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-/// تحوي عناوين السيرفر لكل سيناريو:
-const _webHost        = 'http://localhost:8000/api';
-const _androidEmuHost = 'http://192.168.1.5:8000/api';
-//const _androidEmuHost = 'http://10.0.2.2:8000/api';
-const _iosSimHost     = 'http://127.0.0.1:8000/api';
+/// عدِّل هذا الـ IP فقط عند تغيّره داخل شبكتك
+const _lan = '192.168.1.5:8000';
 
-/// Base URL يتم اختياره تلقائيًا حسب المنصّة:
+String _http(String host) => 'http://$host/api';
+String _ws  (String host) => 'ws://$host';        // <-- لاحِظ ws://
+
 class ApiConfig {
   static String get baseUrl {
-    if (kIsWeb) return _webHost;           // عند flutter run -d chrome
-    if (Platform.isAndroid) return _androidEmuHost; // عند المحاكي
-    if (Platform.isIOS)     return _iosSimHost;     // عند محاكي iOS
-    // لأي جهاز آخر (Windows/macOS/Linux)
-    return _webHost;
+    if (kIsWeb)            return _http('localhost:8000');
+    if (Platform.isAndroid) return _http(_lan);
+    if (Platform.isIOS)     return _http('127.0.0.1:8000');
+    return _http('localhost:8000');
+  }
+
+  static String get wsUrl {
+    if (kIsWeb)            return _ws('localhost:8000');
+    if (Platform.isAndroid) return _ws(_lan);
+    if (Platform.isIOS)     return _ws('127.0.0.1:8000');
+    return _ws('localhost:8000');
   }
 }
-//http://192.168.1.5:8000/api

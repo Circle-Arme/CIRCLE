@@ -4,15 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:image_picker/image_picker.dart';
-
-
 import 'package:frontend/core/services/field_service.dart';
 import 'package:frontend/data/models/area_model.dart';
 import 'package:frontend/data/models/community_model.dart';
 import 'package:frontend/presentation/widgets/search_bar_widget.dart';
 import 'package:mime/mime.dart';
+import 'package:frontend/core/services/community_service.dart';
 
-import '../../../../core/services/CommunityService.dart';
 import '../../../blocs/community/community_bloc.dart';
 import '../../../blocs/community/community_event.dart';
 import '../../../blocs/community/community_state.dart';
@@ -22,9 +20,10 @@ import 'create_edit_dialog.dart';
 import 'delete_confirmation.dart';
 
 
+
 class CommunityTab extends StatelessWidget {
   static bool needRefresh = false;
-  const CommunityTab({Key? key}) : super(key: key);
+  const CommunityTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +33,7 @@ class CommunityTab extends StatelessWidget {
           create: (context) => FieldBloc(FieldService())..add(FetchFields()),
         ),
         BlocProvider(
-          create: (context) => CommunityBloc(CommunityService())..add(FetchCommunities()),
+          create: (context) => CommunityBloc(CommunityService())..add(FetchCommunities()), // Fetch all communities
         ),
       ],
       child: const _CommunityTabContent(),
@@ -51,6 +50,7 @@ class _CommunityTabContent extends StatefulWidget {
 
 class _CommunityTabContentState extends State<_CommunityTabContent> {
   String _searchQuery = '';
+  int? _selectedFieldId; // NEW: To filter communities by field
 
   Future<String?> pickImage() async {
     final picker = ImagePicker();
@@ -58,15 +58,15 @@ class _CommunityTabContentState extends State<_CommunityTabContent> {
     if (pickedFile != null) {
       final file = File(pickedFile.path);
       if (!await file.exists()) {
-        throw Exception('الملف غير موجود');
+        throw Exception('File does not exist');
       }
       final size = await file.length();
       if (size > 5 * 1024 * 1024) {
-        throw Exception('حجم الصورة كبير جدًا');
+        throw Exception('Image size is too large');
       }
       final mime = lookupMimeType(pickedFile.path);
       if (mime != 'image/jpeg' && mime != 'image/png') {
-        throw Exception('تنسيق الصورة غير مدعوم');
+        throw Exception('Unsupported image format');
       }
       return pickedFile.path;
     }
@@ -75,7 +75,7 @@ class _CommunityTabContentState extends State<_CommunityTabContent> {
 
   Future<void> _openCreateOrEdit(BuildContext context, [CommunityModel? community]) async {
     final loc = AppLocalizations.of(context)!;
-    const primaryColor = Color(0xFF326B80); // لون التطبيق الأساسي
+    const primaryColor = Color(0xFF326B80);
 
     final result = await showDialog<bool>(
       context: context,
@@ -88,9 +88,30 @@ class _CommunityTabContentState extends State<_CommunityTabContent> {
                 (f) => f.id.toString() == data.areaId,
             orElse: () => AreaModel.empty(),
           );
-          String? imagePath = data.image;
+          String? localImage = data.image;
+          bool removeOld = false;
+
           return StatefulBuilder(
             builder: (context, setState) {
+              Future<void> _choose() async {
+                final path = await pickImage();
+                if (path != null) {
+                  setState(() {
+                    localImage = path;
+                    removeOld = false;
+                  });
+                  onChanged(data.copyWith(image: path));
+                }
+              }
+
+              void _clear() {
+                setState(() {
+                  localImage = null;
+                  removeOld = true;
+                });
+                onChanged(data.copyWith(image: null));
+              }
+
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -149,51 +170,63 @@ class _CommunityTabContentState extends State<_CommunityTabContent> {
                     onChanged: (v) => onChanged(data.copyWith(name: v)),
                   ),
                   SizedBox(height: 16.h),
-                  ElevatedButton(
-                    onPressed: () async {
-                      imagePath = await pickImage();
-                      if (imagePath != null) {
-                        setState(() => imagePath = imagePath);
-                        onChanged(data.copyWith(image: imagePath));
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14.r),
+                  Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: _choose,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14.r),
+                          ),
+                        ),
+                        child: Text(loc.chooseImage),
                       ),
-                    ),
-                    child: Text(loc.chooseImage),
+                      const SizedBox(width: 12),
+                      if (localImage != null)
+                        OutlinedButton.icon(
+                          onPressed: _clear,
+                          icon: const Icon(Icons.clear, size: 18, color: Colors.red),
+                          label: Text(loc.clear),
+                        ),
+                    ],
                   ),
-                  if (imagePath != null) ...[
-                    SizedBox(height: 8.h),
+                  const SizedBox(height: 8),
+                  if (localImage != null)
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(color: primaryColor),
                         borderRadius: BorderRadius.circular(8.r),
                       ),
-                      child: Image.file(
-                        File(imagePath!),
+                      child: Image(
+                        image: localImage!.startsWith('http')
+                            ? NetworkImage(localImage!) as ImageProvider
+                            : FileImage(File(localImage!)),
                         height: 100.h,
                         fit: BoxFit.cover,
                       ),
                     ),
-                  ],
                 ],
               );
             },
           );
         },
         onSubmit: (model) {
-          final fid = int.tryParse(model.areaId);
-          if (fid == null || fid == 0) {
-            throw Exception('يرجى اختيار مجال صالح');
+          final fid = int.tryParse(model.areaId) ?? 0;
+          if (fid == 0) {
+            throw Exception('Please select a valid field');
           }
           if (community == null) {
             context.read<CommunityBloc>().add(CreateCommunity(fid, model.name, model.image));
           } else {
-            context.read<CommunityBloc>().add(UpdateCommunity(model.id, fid, model.name, model.image));
+            context.read<CommunityBloc>().add(UpdateCommunity(
+              model.id,
+              fid,
+              model.name,
+              model.image,
+             // clearImage: removeOld,
+            ));
           }
           return Future.value();
         },

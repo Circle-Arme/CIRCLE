@@ -22,13 +22,13 @@ class EditThreadForm extends StatefulWidget {
 
 
   const EditThreadForm({
-    Key? key,
+    super.key,
     required this.thread,
     required this.communityId,
     required this.roomType,
     required this.threadBloc,
     this.isJobOpportunity = false,
-  }) : super(key: key);
+  });
 
   @override
   State<EditThreadForm> createState() => _EditThreadFormState();
@@ -36,6 +36,7 @@ class EditThreadForm extends StatefulWidget {
 
 class _EditThreadFormState extends State<EditThreadForm> {
   final _formKey = GlobalKey<FormState>();
+  bool _waitingResponse = false;                        // ★ جديد
   late TextEditingController _titleController;
   late TextEditingController _tagsController;
   late TextEditingController _contentController;
@@ -46,6 +47,7 @@ class _EditThreadFormState extends State<EditThreadForm> {
   String _classification = 'Q&A';
   String _jobLinkType = 'direct';
   PlatformFile? _selectedFile;
+  bool _clearExistingFile = false;
 
   String? jobType;
   String? location;
@@ -81,6 +83,14 @@ class _EditThreadFormState extends State<EditThreadForm> {
     super.dispose();
   }
 
+  void _removeFile() {
+    setState(() {
+      _selectedFile = null;
+      _clearExistingFile = true;
+    });
+  }
+
+
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles();
     if (result != null) {
@@ -90,6 +100,7 @@ class _EditThreadFormState extends State<EditThreadForm> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
+      setState(() => _waitingResponse = true);            // ★
       final tags = _tagsController.text
           .split(',')
           .map((t) => t.trim())
@@ -122,14 +133,18 @@ class _EditThreadFormState extends State<EditThreadForm> {
     final loc = AppLocalizations.of(context)!;
     return BlocListener<ThreadBloc, ThreadState>(
       bloc: widget.threadBloc,
+      listenWhen: (_, __) => _waitingResponse,          // ★ استمع فقط أثناء الانتظار
       listener: (context, state) {
         if (state is ThreadLoaded) {
-          // بعد التعديل نرجع للقائمة
-          Navigator.pop(context);
+          setState(() => _waitingResponse = false);
+          _waitingResponse = false;                     // أوقف الاستماع
+          if (mounted) Navigator.pop(context);          // رجوع واحد
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(loc.threadUpdatedSuccessfully)),
           );
         } else if (state is ThreadError) {
+          setState(() => _waitingResponse = false);
+          _waitingResponse = false;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${loc.failedToUpdateThread}: ${state.message}'),
@@ -269,13 +284,37 @@ class _EditThreadFormState extends State<EditThreadForm> {
                   ],
 
                   // إرفاق ملف جديد
-                  ElevatedButton.icon(
-                    onPressed: _pickFile,
-                    icon: const Icon(Icons.attach_file),
-                    label: Text(
-                        _selectedFile?.name ?? loc.attachFile
+                  /* ───────── attachment ───────── */
+                  if (widget.thread.fileAttachment != null && !_clearExistingFile && _selectedFile == null)
+                    ListTile(
+                      leading: const Icon(Icons.insert_drive_file, color: AppColors.primaryColor),
+                      title: Text(widget.thread.fileAttachmentName ?? loc.previousAttachment),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.red),
+                        onPressed: _removeFile,
+                      ),
+                    )
+                  else if (_selectedFile == null)
+                    ElevatedButton.icon(
+                      onPressed: _pickFile,
+                      icon: const Icon(Icons.attach_file, color: Colors.white),
+                      label: Text(loc.attachFile, style: const TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                      ),
+                    )
+                  else
+                    ListTile(
+                      leading: const Icon(Icons.insert_drive_file, color: AppColors.primaryColor),
+                      title: Text(_selectedFile!.name),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.red),
+                        onPressed: _removeFile,
+                      ),
                     ),
-                  ),
+
+
 
                   SizedBox(height: 24.h),
 
@@ -283,14 +322,17 @@ class _EditThreadFormState extends State<EditThreadForm> {
                   BlocBuilder<ThreadBloc, ThreadState>(
                     bloc: widget.threadBloc,
                     builder: (context, state) {
-                      if (state is ThreadLoading) {
+                      if (state is ThreadLoading && _waitingResponse) {
                         return const CircularProgressIndicator();
                       }
                       return ElevatedButton(
                         onPressed: _submit,
-                        child: Text(loc.saveChanges),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryColor,
+                        ),
+                        child: Text(
+                            loc.saveChanges,
+                          style: TextStyle(fontSize: 16.sp, color: Colors.white),
                         ),
                       );
                     },

@@ -8,7 +8,7 @@ import 'package:frontend/core/services/admin_summary_service.dart';
 const _primaryColor = Color(0xFF326B80);
 
 class AdminSummaryPage extends StatefulWidget {
-  const AdminSummaryPage({Key? key}) : super(key: key);
+  const AdminSummaryPage({super.key});
 
   @override
   State<AdminSummaryPage> createState() => _AdminSummaryPageState();

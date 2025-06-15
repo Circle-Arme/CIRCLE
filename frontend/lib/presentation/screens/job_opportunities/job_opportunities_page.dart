@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -11,6 +13,9 @@ import 'package:frontend/presentation/theme/app_colors.dart';
 import 'package:frontend/presentation/screens/thread/create_thread_form.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../core/utils/shared_prefs.dart';
+import '../../../data/models/alert_model.dart';
+import '../../blocs/alert/alert_bloc.dart';
+import '../../blocs/alert/alert_event.dart';
 import '../../widgets/custom_drawer.dart';
 import '../../widgets/search_bar_widget.dart';
 import '../../widgets/job_threads_list_widget.dart';
@@ -18,11 +23,15 @@ import 'package:frontend/presentation/screens/discussion/discussion_room_page.da
 
 import '../advanced_discussion/advanced_discussion_room_page.dart';
 import '../thread/edit_thread_form.dart';
+import '../../../core/services/realtime_service.dart';          // ★
+import '../../../data/models/rt_event.dart';                    // ★
+
+
 
 class JobOpportunitiesPage extends StatefulWidget {
   final int communityId;
 
-  const JobOpportunitiesPage({Key? key, required this.communityId}) : super(key: key);
+  const JobOpportunitiesPage({super.key, required this.communityId});
 
   @override
   State<JobOpportunitiesPage> createState() => _JobOpportunitiesPageState();
@@ -35,11 +44,78 @@ class _JobOpportunitiesPageState extends State<JobOpportunitiesPage> {
   late Future<List<ThreadModel>> _threadsFuture;
   late Future<String?> _userTypeFuture;
   late Future<String?> _currentUserIdFuture;
+  late StreamSubscription<RTEvent> _rtSub;
 
   @override
   void initState() {
     super.initState();
-    _threadsFuture = ThreadService.fetchThreads(widget.communityId, roomType: 'job_opportunities', isJobOpportunity: true);
+    context.read<ThreadBloc>().add(StartRealtimeEvent(widget.communityId, 'job_opportunities'));
+
+    _rtSub = RealTimeService.stream().listen(
+          (ev) {
+        final bloc = context.read<ThreadBloc>();
+        final alertBloc = context.read<AlertBloc>();
+
+        // التحقق من room_type لتتماشى مع الغرفة الحالية
+        final roomType = ev.payload['room_type']?.toString();
+        if (roomType != null && roomType != 'job_opportunities') return;
+
+        switch (ev.type) {
+        /*──────────── Alerts ────────────*/
+          case 'alert_pushed':
+            alertBloc.add(NewAlertPushed(AlertModel.fromJson(ev.payload['alert'])));
+            break;
+
+        /*──────────── Threads ────────────*/
+          case 'thread_created':
+            bloc.add(ThreadAdded(ThreadModel.fromJson(ev.payload['thread'])));
+            break;
+          case 'thread_updated':
+            bloc.add(ThreadUpdated(ThreadModel.fromJson(ev.payload['thread'])));
+            break;
+          case 'thread_deleted':
+            bloc.add(ThreadDeleted(ev.payload['id'].toString()));
+            break;
+          case 'thread_like_toggled':
+            bloc.add(ThreadLikeToggled(
+              id: ev.payload['id'].toString(),
+              likes: ev.payload['likes'] as int? ?? 0,
+              likedByMe: ev.payload['liked_by_me'] as bool? ?? false,
+            ));
+            break;
+
+        /*──────────── Replies ────────────*/
+          case 'reply_added':
+          case 'reply_deleted':
+            bloc.add(RepliesCountChanged(
+              threadId: ev.payload['thread_id'].toString(),
+              replies: ev.payload['replies'] as int? ?? 0,
+            ));
+            if (ev.type == 'reply_added') {
+              bloc.add(ReplyAdded(ReplyModel.fromJson(ev.payload['reply'])));
+            }
+            break;
+          case 'reply_like_toggled':
+            bloc.add(ReplyLikeToggled(
+              id: ev.payload['id'].toString(),
+              likes: ev.payload['likes'] as int? ?? 0,
+            ));
+            break;
+
+        /*──────────── الافتراضي ────────────*/
+          default:
+            print('[WS] Un-handled event: ${ev.type}');
+        }
+      },
+      onError: (e) => print('[WS] Error: $e'),
+    );
+
+
+    _threadsFuture = ThreadService.fetchThreads(
+      widget.communityId,
+      roomType: 'job_opportunities',
+      isJobOpportunity: true,
+    );
     _userTypeFuture = AuthService.getUserType();
     _currentUserIdFuture = AuthService.getCurrentUserId();
     context.read<ThreadBloc>().add(FetchThreadsEvent(
@@ -362,6 +438,7 @@ class _JobOpportunitiesPageState extends State<JobOpportunitiesPage> {
                             filterThreads: _filterThreads,
                             onRefresh: _refreshThreads,
                             currentUserId: currentUserId,
+                            communityId: widget.communityId,
                             onEdit: (thread) {
                               Navigator.push(
                                 context,
@@ -399,5 +476,10 @@ class _JobOpportunitiesPageState extends State<JobOpportunitiesPage> {
       ),
 
     );
+  }
+  @override
+  void dispose() {
+    _rtSub.cancel(); // ★ إغلاق الاشتراك
+    super.dispose();
   }
 }

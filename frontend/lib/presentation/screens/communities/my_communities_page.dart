@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:frontend/core/services/auth_service.dart';
 import 'package:frontend/core/utils/shared_prefs.dart';
-import 'package:frontend/data/models/user_profile_model.dart';
 import 'package:frontend/data/models/community_model.dart';
-import 'package:frontend/presentation/screens/communities/rooms_selection_page.dart';
-import 'package:frontend/presentation/screens/communities/communities_page.dart';
-import 'package:frontend/presentation/screens/home/fields_page.dart';
-import 'package:frontend/core/services/CommunityService.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:frontend/presentation/blocs/alert/alert_bloc.dart';
+import 'package:frontend/presentation/blocs/alert/alert_event.dart';
 import 'package:frontend/presentation/screens/communities/organization_rooms_page.dart';
-import 'package:frontend/presentation/screens/job_opportunities/job_opportunities_page.dart';
+import 'package:frontend/presentation/screens/communities/rooms_selection_page.dart';
+import 'package:frontend/presentation/screens/home/fields_page.dart';
+import 'package:frontend/core/services/community_service.dart';
+import 'package:frontend/presentation/screens/alerts/alerts_bell.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../../../core/services/realtime_service.dart';
 import '../../widgets/custom_drawer.dart';
 
 class MyCommunitiesPage extends StatefulWidget {
@@ -28,6 +31,14 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
     super.initState();
     _loadJoinedCommunities();
     _loadUserProfile();
+    // تهيئة جلب التنبيهات
+    context.read<AlertBloc>().add(FetchAlerts(unreadOnly: false));
+    // الاتصال بقناة التنبيهات
+    AuthService.getCurrentUserId().then((userId) {
+      if (userId != null) {
+        RealTimeService.connectAlerts(int.parse(userId));
+      }
+    });
   }
 
   Future<void> _loadUserProfile() async {
@@ -80,7 +91,8 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
           ),
         ),
         actions: [
-          const Icon(Icons.notifications_none, color: Color(0xFF326B80), size: 24),
+          // إضافة زر الجرس للتنبيهات
+          AlertsBell(bloc: context.read<AlertBloc>()),
           SizedBox(width: 12.w),
         ],
       ),
@@ -122,7 +134,6 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
               padding: EdgeInsets.all(16.w),
               child: FloatingActionButton.extended(
                 onPressed: () async {
-                  final areaId = await SharedPrefs.getLastSelectedAreaId();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -135,10 +146,10 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
                   loc.joinCommunity,
                   style: const TextStyle(color: Color(0xFF326B80)),
                 ),
-                backgroundColor: const  Color(0xFFF5F9F9), // لون الخلفية
-                foregroundColor: const Color(0xFF326B80), // لون الأيقونة والنص
+                backgroundColor: const Color(0xFFF5F9F9),
+                foregroundColor: const Color(0xFF326B80),
                 shape: const StadiumBorder(
-                  side: BorderSide(color: Color(0xFF326B80)), // الحدود
+                  side: BorderSide(color: Color(0xFF326B80)),
                 ),
               ),
             ),
@@ -170,21 +181,18 @@ class _MyCommunitiesPageState extends State<MyCommunitiesPage> {
           onPressed: () {
             final route = (_userType == 'organization')
                 ? OrganizationRoomsPage(communityId: community.id)
-                : RoomsSelectionPage(
-              communityId: community.id,
-            );
+                : RoomsSelectionPage(communityId: community.id);
 
             Navigator.push(context, MaterialPageRoute(builder: (_) => route))
-                .then((_) => _loadJoinedCommunities());   // ✨ إعادة التحميل
+                .then((_) => _loadJoinedCommunities());
           },
-        style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF326B80),
-        shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(30.r),
-        ),
-        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
-        ),
-
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF326B80),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30.r),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 8.h),
+          ),
           child: const Icon(Icons.arrow_forward, color: Colors.white),
         ),
         Padding(

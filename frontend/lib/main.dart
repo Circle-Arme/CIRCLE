@@ -3,22 +3,24 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:frontend/presentation/blocs/alert/alert_event.dart';
 import 'package:frontend/presentation/blocs/language/language_state.dart';
 import 'package:frontend/presentation/blocs/theme/theme_state.dart';
-import 'package:frontend/presentation/screens/auth/regstraion_page.dart';
-import 'presentation/blocs/language/language_bloc.dart';
-import 'presentation/blocs/language/language_event.dart';
-import 'presentation/blocs/theme/theme_bloc.dart';
-import 'presentation/blocs/theme/theme_event.dart';
-import 'presentation/blocs/auth/auth_bloc.dart';
-import 'presentation/blocs/thread/thread_bloc.dart'; // استيراد ThreadBloc
-import 'core/utils/shared_prefs.dart';
+import 'package:frontend/presentation/blocs/auth/auth_bloc.dart';
+import 'package:frontend/presentation/blocs/thread/thread_bloc.dart';
+import 'package:frontend/presentation/blocs/alert/alert_bloc.dart'; // استيراد AlertBloc
+import 'package:frontend/presentation/blocs/language/language_bloc.dart';
+import 'package:frontend/presentation/blocs/language/language_event.dart';
+import 'package:frontend/presentation/blocs/theme/theme_bloc.dart';
+import 'package:frontend/presentation/blocs/theme/theme_event.dart';
+import 'package:frontend/core/utils/shared_prefs.dart';
 
 // الصفحات:
-import 'presentation/screens/auth/login_page.dart';
-import 'presentation/screens/home/fields_page.dart';
-import 'presentation/screens/admin/admin_dashboard_page.dart';
-import 'presentation/screens/Welcome/welcome_page.dart';
+import 'package:frontend/presentation/screens/auth/login_page.dart';
+import 'package:frontend/presentation/screens/home/fields_page.dart';
+import 'package:frontend/presentation/screens/admin/admin_dashboard_page.dart';
+import 'package:frontend/presentation/screens/Welcome/welcome_page.dart';
+import 'package:frontend/presentation/screens/auth/regstraion_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,8 +45,12 @@ class MyApp extends StatelessWidget {
           create: (context) => AuthBloc(),
         ),
         BlocProvider(
-          create: (context) => ThreadBloc(), // إضافة ThreadBloc هنا
+          create: (context) => ThreadBloc(),
         ),
+        BlocProvider(
+          create: (context) => AlertBloc(), // إضافة AlertBloc
+        ),
+        BlocProvider(create: (_) => AlertBloc()..add(const FetchAlerts())),
       ],
       child: ScreenUtilInit(
         designSize: const Size(411, 819),
@@ -102,10 +108,10 @@ class MyApp extends StatelessWidget {
                     ),
                     themeMode: themeState.themeMode,
 
-                    // ✅ البداية من صفحة تسجيل الدخول
+                    // البداية من صفحة الترحيب
                     initialRoute: '/welcome',
 
-                    // ✅ المسارات (دون تمرير باراميترات)
+                    // المسارات
                     routes: {
                       '/welcome': (context) => const WelcomePage(),
                       '/login': (context) => const LoginPage(),
