@@ -10,10 +10,29 @@ CIRCLE is a community platform that connects learners, professionals and organiz
 
 ## 📱 Screenshots
 
+### 👤 User
 | Login | Communities | Discussion Room | Jobs |
 |:---:|:---:|:---:|:---:|
 | <img src="screenshots/login.png" width="200"/> | <img src="screenshots/communities.png" width="200"/> | <img src="screenshots/chat.png" width="200"/> | <img src="screenshots/jobs.png" width="200"/> |
 
+### 🏢 Organization
+| Organization Profile | Post a Job |
+|:---:|:---:|
+| <img src="screenshots/org_profile.png" width="200"/> | <img src="screenshots/post_job.png" width="200"/> |
+
+### 🛡 Admin
+| Dashboard | Manage Communities |
+|:---:|:---:|
+| <img src="screenshots/admin_dashboard.png" width="200"/> | <img src="screenshots/admin_communities.png" width="200"/> |
+
+<details>
+<summary>📂 More screens</summary>
+
+| Profile | Search | Arabic UI |
+|:---:|:---:|:---:|
+| <img src="screenshots/profile.png" width="200"/> | <img src="screenshots/search.png" width="200"/> | <img src="screenshots/arabic.png" width="200"/> |
+
+</details>
 ---
 
 ## ✨ Features
@@ -106,6 +125,7 @@ The system was verified through **functional**, **integration** and **acceptance
 
 | Member | Role |
 |---|---|
-| **Riham Abd-Elfatah** | Full Flutter app development & API integration, backend contribution |
+| **Mayada Seedahmed** | UI/UX design (Adobe XD) & research |
+| **Riham Abd-Elfatah** |  Flutter app development & API integration, backend contribution |
 | **Abeer Abdo Adam** | Backend development |
-| 
+| **Eilaf Adil Yousif** | Backend development |
