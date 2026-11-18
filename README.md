@@ -33,6 +33,7 @@ CIRCLE is a community platform that connects learners, professionals and organiz
 | <img src="screenshots/profile.png" width="200"/> | <img src="screenshots/search.png" width="200"/> | <img src="screenshots/arabic.png" width="200"/> |
 
 </details>
+
 ---
 
 ## ✨ Features
